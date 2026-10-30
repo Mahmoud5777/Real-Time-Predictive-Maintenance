@@ -20,6 +20,8 @@ git push -u origin main
 
 ## Ou tu travailles
 
+Voir docs/BRANCH_WORKFLOW.md pour le schema complet (une branche par mini-projet, PR vers main).
+
 | Qui | Dossier | Branche longue |
 |---|---|---|
 | Member 1 | `mp1-simulator/` | `mp1/simulator` |
@@ -71,3 +73,4 @@ Exemples : `feat(mp3): add paginated measurements endpoint`, `fix(mp2): keep cri
 - [ ] Variables d environnement ajoutees a `.env.example`.
 - [ ] Route/topic/fonction documente dans le README du mini-projet.
 - [ ] KPI associe mesure et reporte dans le rapport.
+
