@@ -1,0 +1,376 @@
+openapi: 3.0.3
+info:
+  title: FOG Cloud API (MP3)
+  version: 0.1.0
+  description: >
+    Contrat publie en semaine 1. Le dashboard (MP4) developpe contre ces routes en mock
+    avant que le backend soit termine. Toute modification non retrocompatible passe par une
+    PR etiquetee BREAKING validee par MP3 et MP4.
+servers:
+  - url: http://localhost:8000/api/v1
+security:
+  - BearerAuth: []
+tags:
+  - name: ingest
+  - name: machines
+  - name: measurements
+  - name: predictions
+  - name: alerts
+  - name: fog
+  - name: tasks
+  - name: analytics
+paths:
+  /ingest/batch:
+    post:
+      tags: [ingest]
+      summary: Ingestion HTTP de secours (seed, tests, rejeu)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BatchRequest' }
+      responses:
+        '207': { description: Resultat par element, content: { application/json: { schema: { $ref: '#/components/schemas/BatchReport' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '400': { $ref: '#/components/responses/Problem' }
+  /machines:
+    get:
+      tags: [machines]
+      summary: Lister les machines
+      parameters:
+        - { $ref: '#/components/parameters/Zone' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Offset' }
+      responses:
+        '200':
+          description: Page de machines
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MachinePage' }
+  /machines/{machineId}:
+    get:
+      tags: [machines]
+      parameters: [ { $ref: '#/components/parameters/MachineId' } ]
+      responses:
+        '200': { description: Machine, content: { application/json: { schema: { $ref: '#/components/schemas/Machine' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /machines/{machineId}/latest:
+    get:
+      tags: [measurements]
+      summary: Derniere mesure connue d une machine
+      parameters: [ { $ref: '#/components/parameters/MachineId' } ]
+      responses:
+        '200': { description: Mesure, content: { application/json: { schema: { $ref: '#/components/schemas/SensorData' } } } }
+  /measurements:
+    get:
+      tags: [measurements]
+      summary: Historique des mesures (pagines, filtres machine/zone/periode)
+      parameters:
+        - { $ref: '#/components/parameters/MachineIdQ' }
+        - { $ref: '#/components/parameters/Zone' }
+        - { $ref: '#/components/parameters/From' }
+        - { $ref: '#/components/parameters/To' }
+        - { $ref: '#/components/parameters/Sort' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Offset' }
+      responses:
+        '200': { description: Page de mesures, content: { application/json: { schema: { $ref: '#/components/schemas/SensorDataPage' } } } }
+  /predictions:
+    get:
+      tags: [predictions]
+      parameters:
+        - { $ref: '#/components/parameters/MachineIdQ' }
+        - { $ref: '#/components/parameters/Zone' }
+        - { $ref: '#/components/parameters/AnomalyOnly' }
+        - { $ref: '#/components/parameters/From' }
+        - { $ref: '#/components/parameters/To' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Offset' }
+      responses:
+        '200': { description: Page de predictions, content: { application/json: { schema: { $ref: '#/components/schemas/PredictionPage' } } } }
+  /alerts:
+    get:
+      tags: [alerts]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [OPEN, ACKNOWLEDGED, RESOLVED] }
+        - name: severity
+          in: query
+          schema: { type: string, enum: [NORMAL, WARNING, CRITICAL] }
+        - { $ref: '#/components/parameters/From' }
+        - { $ref: '#/components/parameters/To' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Offset' }
+      responses:
+        '200': { description: Page d alertes, content: { application/json: { schema: { $ref: '#/components/schemas/AlertPage' } } } }
+  /alerts/{alertId}/acknowledge:
+    patch:
+      tags: [alerts]
+      summary: Acquittement d une alerte (audit trail)
+      parameters: [ { $ref: '#/components/parameters/AlertId' } ]
+      responses:
+        '200': { description: Alerte mise a jour }
+  /fog/nodes:
+    get:
+      tags: [fog]
+      summary: Sante des noeuds Fog
+      responses:
+        '200': { description: Liste, content: { application/json: { schema: { $ref: '#/components/schemas/FogNodeList' } } } }
+  /tasks/events:
+    get:
+      tags: [tasks]
+      summary: Historique des taches et migrations
+      parameters:
+        - name: source_fog
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string }
+        - { $ref: '#/components/parameters/From' }
+        - { $ref: '#/components/parameters/To' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Offset' }
+      responses:
+        '200': { description: Page d evenements, content: { application/json: { schema: { $ref: '#/components/schemas/TaskEventPage' } } } }
+  /analytics/kpis:
+    get:
+      tags: [analytics]
+      summary: KPI usine pre-calculés
+      parameters:
+        - name: scope
+          in: query
+          schema: { type: string, enum: [plant, zone, machine, fog] }
+        - { $ref: '#/components/parameters/From' }
+        - { $ref: '#/components/parameters/To' }
+      responses:
+        '200': { description: KPI, content: { application/json: { schema: { $ref: '#/components/schemas/KpiList' } } } }
+  /analytics/model-comparison:
+    get:
+      tags: [analytics]
+      summary: Performance comparee par model_version
+      responses:
+        '200': { description: Comparaison }
+  /stream:
+    get:
+      tags: [analytics]
+      summary: Flux SSE des evenements temps reel (alerts, changements d etat Fog)
+      responses:
+        '200': { description: text/event-stream }
+components:
+  securitySchemes:
+    BearerAuth: { type: http, scheme: bearer }
+  parameters:
+    MachineId:
+      name: machineId
+      in: path
+      required: true
+      schema: { type: string, pattern: '^M(0[1-9]|1[0-2])$' }
+    MachineIdQ:
+      name: machine_id
+      in: query
+      schema: { type: string }
+    AlertId:
+      name: alertId
+      in: path
+      required: true
+      schema: { type: string }
+    Zone:
+      name: zone
+      in: query
+      schema: { type: string, enum: [A, B, C] }
+    From:
+      name: from
+      in: query
+      description: Borne basse inclusive, ISO-8601 UTC
+      schema: { type: string, format: date-time }
+    To:
+      name: to
+      in: query
+      schema: { type: string, format: date-time }
+    Sort:
+      name: sort
+      in: query
+      description: Champ precede de - pour un tri descendant
+      schema: { type: string, default: '-timestamp' }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 1000, default: 50 }
+    Offset:
+      name: offset
+      in: query
+      schema: { type: integer, minimum: 0, default: 0 }
+    AnomalyOnly:
+      name: anomaly
+      in: query
+      schema: { type: boolean }
+  responses:
+    Problem:
+      description: Erreur normalisee RFC 7807
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFound:
+      description: Ressource inconnue
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Unauthorized:
+      description: Token absent ou invalide
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Problem' }
+  schemas:
+    Problem:
+      type: object
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+    BatchRequest:
+      type: object
+      required: [messages]
+      properties:
+        messages:
+          type: array
+          maxItems: 5000
+          items:
+            type: object
+            required: [kind, payload]
+            properties:
+              kind: { type: string, enum: [sensor, prediction, alert, fog_status, task_event] }
+              payload: { type: object }
+    BatchReport:
+      type: object
+      properties:
+        accepted: { type: integer }
+        duplicates: { type: integer }
+        rejected: { type: integer }
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              index: { type: integer }
+              code: { type: string }
+              detail: { type: string }
+    PageMeta:
+      type: object
+      properties:
+        limit: { type: integer }
+        offset: { type: integer }
+        total: { type: integer }
+    Machine:
+      type: object
+      properties:
+        machine_id: { type: string }
+        name: { type: string }
+        machine_type: { type: string }
+        zone: { type: string }
+        fog_id: { type: string }
+    MachinePage:
+      type: object
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Machine' } }
+        meta: { $ref: '#/components/schemas/PageMeta' }
+    SensorData:
+      type: object
+      properties:
+        machine_id: { type: string }
+        zone: { type: string }
+        timestamp: { type: string, format: date-time }
+        temperature: { type: number }
+        vibration: { type: number }
+        speed: { type: number }
+        current: { type: number }
+        state: { type: string }
+    SensorDataPage:
+      type: object
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/SensorData' } }
+        meta: { $ref: '#/components/schemas/PageMeta' }
+    Prediction:
+      type: object
+      properties:
+        machine_id: { type: string }
+        fog_id: { type: string }
+        timestamp: { type: string, format: date-time }
+        risk_score: { type: number }
+        anomaly: { type: boolean }
+        predicted_fault: { type: string }
+        severity: { type: string }
+        model_version: { type: string }
+    PredictionPage:
+      type: object
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Prediction' } }
+        meta: { $ref: '#/components/schemas/PageMeta' }
+    Alert:
+      type: object
+      properties:
+        alert_id: { type: string }
+        machine_id: { type: string }
+        fog_id: { type: string }
+        timestamp: { type: string, format: date-time }
+        type: { type: string }
+        severity: { type: string }
+        message: { type: string }
+        recommended_action: { type: string, nullable: true }
+        status: { type: string }
+    AlertPage:
+      type: object
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Alert' } }
+        meta: { $ref: '#/components/schemas/PageMeta' }
+    FogNode:
+      type: object
+      properties:
+        fog_id: { type: string }
+        zone: { type: string }
+        status: { type: string }
+        cpu_percent: { type: number }
+        ram_percent: { type: number }
+        queued_tasks: { type: integer }
+        active_tasks: { type: integer }
+        last_heartbeat: { type: string, format: date-time }
+    FogNodeList:
+      type: object
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/FogNode' } }
+        heartbeat_timeout_seconds: { type: integer }
+    TaskEvent:
+      type: object
+      properties:
+        task_id: { type: string }
+        task_type: { type: string }
+        priority: { type: string }
+        critical: { type: boolean }
+        source_fog: { type: string }
+        destination_fog: { type: string, nullable: true }
+        status: { type: string }
+        created_at: { type: string, format: date-time }
+        completed_at: { type: string, format: date-time, nullable: true }
+        reason: { type: string, nullable: true }
+    TaskEventPage:
+      type: object
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/TaskEvent' } }
+        meta: { $ref: '#/components/schemas/PageMeta' }
+    Kpi:
+      type: object
+      properties:
+        metric: { type: string }
+        scope: { type: string }
+        scope_value: { type: string }
+        bucket_start: { type: string, format: date-time }
+        bucket_end: { type: string, format: date-time }
+        value: { type: number }
+        sample_size: { type: integer }
+    KpiList:
+      type: object
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Kpi' } }

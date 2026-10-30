@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, "mp1/*", "mp2/*", "mp3/*", "mp4/*"]
+  push:
+    branches: [main]
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install openapi-spec-validator pyyaml
+      - name: Validate shared OpenAPI contract
+        run: python -m openapi_spec_validator contracts/openapi.yaml
+      - name: Fixtures must be valid JSON
+        run: python -c "import json,glob;[json.load(open(p)) for p in glob.glob('contracts/fixtures/**/*.json',recursive=True)]"
+
+  mp3-backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: fog
+          POSTGRES_PASSWORD: fog
+          POSTGRES_DB: fog_cloud_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 3s --health-retries 10
+    defaults:
+      run:
+        working-directory: mp3-cloud
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('mp3-cloud/requirements*.txt') }}
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check .
+      - name: Contract fixtures (valid accepted / invalid rejected)
+        run: python scripts/check_contract.py
+      - name: Tests
+        run: pytest -q --cov=app --cov-report=term-missing

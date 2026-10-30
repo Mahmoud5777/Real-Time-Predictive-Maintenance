@@ -1,0 +1,1 @@
+{"kind":"alert","payload":{"message_id":"01J9ZK7Q9F3T2W8R1X0YABCDEF2","alert_id":"ALR-2026-10-30-000123","machine_id":"M01","fog_id":"FOG_A","timestamp":"2026-10-30T14:25:32Z","type":"ANOMALY_DETECTED","severity":"CRITICAL","message":"Vibration 11.4 mm/s over threshold on M01","recommended_action":"Inspect drive-end bearing within 24 h"}}

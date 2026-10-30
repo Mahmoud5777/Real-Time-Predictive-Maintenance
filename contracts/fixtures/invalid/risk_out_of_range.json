@@ -1,0 +1,1 @@
+{"kind":"prediction","payload":{"message_id":"01J9ZK7Q9F3T2W8R1X0YABCDEF6","machine_id":"M01","fog_id":"FOG_A","timestamp":"2026-10-30T14:25:31Z","risk_score":1.7,"anomaly":true,"predicted_fault":"OVERHEATING","severity":"CRITICAL","model_version":"v1"}}

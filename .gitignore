@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Secrets / env - JAMAIS en Git
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Donnees locales et sorties de tests
+mp3-cloud/data/
+data/raw/
+data/exports/
+*.sqlite
+*.db
+pgdata/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+
