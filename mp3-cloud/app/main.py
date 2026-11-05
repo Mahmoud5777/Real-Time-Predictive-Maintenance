@@ -19,11 +19,8 @@ REQUEST_COUNT = Counter(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # T5 : demarrer le consommateur MQTT quand l ingestion sera implementee.
-    #   from app.ingest.worker import start_mqtt_task
-    #   task = asyncio.create_task(start_mqtt_task())
+    # Le worker MQTT est un processus distinct : python -m app.ingest.worker.
     yield
-    #   task.cancel()
 
 
 def create_app() -> FastAPI:

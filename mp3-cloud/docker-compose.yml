@@ -21,10 +21,14 @@ services:
       - "1883:1883"
     volumes:
       - ../infra/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mqttdata:/mosquitto/data
 
   api:
     build: .
     env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-fog}:${POSTGRES_PASSWORD:-fog}@db:5432/${POSTGRES_DB:-fog_cloud}
+      MQTT_HOST: mosquitto
     depends_on:
       db:
         condition: service_healthy
@@ -37,6 +41,13 @@ services:
   ingest:
     build: .
     env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-fog}:${POSTGRES_PASSWORD:-fog}@db:5432/${POSTGRES_DB:-fog_cloud}
+      MQTT_HOST: mosquitto
+      MQTT_METRICS_HOST: 0.0.0.0
+      MQTT_METRICS_PORT: 8001
+    ports:
+      - "127.0.0.1:${MQTT_METRICS_PORT:-8001}:8001"
     depends_on:
       db:
         condition: service_healthy
@@ -44,6 +55,14 @@ services:
         condition: service_started
     command: python -m app.ingest.worker
     restart: unless-stopped
+    stop_grace_period: 20s
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; data = urllib.request.urlopen('http://127.0.0.1:8001/metrics', timeout=2).read(); assert b'fog_cloud_mqtt_ready 1.0' in data"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
 
 volumes:
   pgdata:
+  mqttdata:

@@ -12,13 +12,16 @@ Un seul code de validation/dedup = pas de divergence possible entre les deux tra
 
 ## Pourquoi la deduplication est une contrainte de base
 
-MQTT QoS 1 garantit *au moins une fois* : les re-emit sont donc certains, pas accidentels.
-Un controle applicatif (« ai-je deja vu cet id ? ») est raciste sous concurrence : deux
-insertions paralleles passent toutes les deux le test. Seule une contrainte d unicite sur
-`message_id` + `INSERT ... ON CONFLICT DO NOTHING` est atomique.
+MQTT QoS 1 garantit *au moins une fois* : les retransmissions sont possibles et doivent
+etre gerees. Un controle applicatif (« ai-je deja vu cet id ? ») seul laisse une course
+sous concurrence : deux insertions paralleles peuvent passer le test. La contrainte unique
+par type et `INSERT ... ON CONFLICT (message_id) DO NOTHING` arbitrent atomiquement.
+Le contenu est ensuite compare : identique = doublon, different = conflit rejete.
 
-Effet mesurable : metrique `fog_cloud_ingest_duplicates_total`, utilisee dans le rapport pour
-prouver le KPI « data consistency ».
+Le bilan HTTP compte les doublons depuis l'etape 3. Le worker MQTT expose depuis l'etape 4
+ses compteurs d'ingestion sur le port 8001 ; les compteurs ne prouvent pas seuls toutes les
+formes de coherence de donnees. Le pipeline est dans [HTTP_INGESTION.md](HTTP_INGESTION.md)
+et la reprise MQTT dans [MQTT_INGESTION.md](MQTT_INGESTION.md).
 
 ## Pourquoi les KPI sont pre-calculés
 

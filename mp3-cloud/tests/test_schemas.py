@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.messages import PredictionResult
+from app.schemas.messages import AlertMessage, PredictionResult, TaskEvent
 from app.services.ingest import validate_batch
 
 GOOD_PREDICTION = {
@@ -27,11 +27,11 @@ def test_valid_prediction_is_accepted():
 @pytest.mark.parametrize(
     "field,value",
     [
-        ("risk_score", 1.5),                      # hors bornes
-        ("machine_id", "M13"),                    # machine inconnue
-        ("zone", "D"),                            # zone invalide -> extra field interdit
-        ("timestamp", "2026-10-30T14:25:31"),     # naive : doit etre refusee
-        ("message_id", "x"),                      # identifiant non exploitable
+        ("risk_score", 1.5),  # hors bornes
+        ("machine_id", "M13"),  # machine inconnue
+        ("zone", "D"),  # zone invalide -> extra field interdit
+        ("timestamp", "2026-10-30T14:25:31"),  # naive : doit etre refusee
+        ("message_id", "x"),  # identifiant non exploitable
     ],
 )
 def test_invalid_payloads_are_rejected(field, value):
@@ -54,3 +54,56 @@ def test_batch_reports_errors_per_index_without_raising():
     assert len(valid) == 1
     assert report.accepted == 1 and report.rejected == 2
     assert {e["code"] for e in report.errors} == {"VALIDATION_ERROR", "UNKNOWN_KIND"}
+
+
+@pytest.mark.parametrize(
+    "task_id",
+    [
+        "b3f1c2d4-6a11-1f3a-9c2e-7d5b1a0e9f42",  # UUIDv1
+        "b3f1c2d4-6a11-5f3a-9c2e-7d5b1a0e9f42",  # UUIDv5
+        "b3f1c2d4-6a11-4f3a-7c2e-7d5b1a0e9f42",  # variante invalide
+    ],
+)
+def test_task_id_requires_uuid_v4(task_id):
+    with pytest.raises(ValidationError):
+        TaskEvent.model_validate(_task_payload(task_id))
+
+
+def _task_payload(task_id: str) -> dict:
+    return {
+        "message_id": "task-test-0001",
+        "task_id": task_id,
+        "task_type": "AGGREGATION",
+        "priority": "MEDIUM",
+        "critical": False,
+        "source_fog": "FOG_A",
+        "status": "CREATED",
+        "created_at": "2026-11-02T08:00:00Z",
+    }
+
+
+def test_task_uuid_v4_uppercase_is_accepted():
+    task_id = "B3F1C2D4-6A11-4F3A-9C2E-7D5B1A0E9F42"
+    assert TaskEvent.model_validate(_task_payload(task_id)).task_id == task_id
+
+
+def test_model_version_length_matches_database():
+    assert PredictionResult.model_validate({**GOOD_PREDICTION, "model_version": "v" * 64})
+    with pytest.raises(ValidationError):
+        PredictionResult.model_validate({**GOOD_PREDICTION, "model_version": "v" * 65})
+
+
+def test_alert_id_length_matches_database():
+    payload = {
+        "message_id": "alert-test-0001",
+        "alert_id": "a" * 64,
+        "machine_id": "M01",
+        "fog_id": "FOG_A",
+        "timestamp": "2026-11-02T08:00:00Z",
+        "type": "ANOMALY_DETECTED",
+        "severity": "WARNING",
+        "message": "Vibration elevee",
+    }
+    assert AlertMessage.model_validate(payload)
+    with pytest.raises(ValidationError):
+        AlertMessage.model_validate({**payload, "alert_id": "a" * 65})

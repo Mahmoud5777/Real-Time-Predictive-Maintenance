@@ -1,0 +1,13 @@
+{
+  "kind": "task_event",
+  "payload": {
+    "message_id": "task-invalid-uuid-version-0001",
+    "task_id": "b3f1c2d4-6a11-1f3a-9c2e-7d5b1a0e9f42",
+    "task_type": "AGGREGATION",
+    "priority": "MEDIUM",
+    "critical": false,
+    "source_fog": "FOG_A",
+    "status": "CREATED",
+    "created_at": "2026-11-02T08:00:00Z"
+  }
+}

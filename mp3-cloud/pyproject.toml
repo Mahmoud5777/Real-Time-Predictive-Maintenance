@@ -1,7 +1,12 @@
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 addopts = "-q --strict-markers"
+markers = [
+    "postgres: tests d'integration dans une base PostgreSQL jetable (--postgres)",
+    "mqtt: tests avec broker MQTT Docker et base jetables (--mqtt)",
+]
 
 [tool.ruff]
 line-length = 100

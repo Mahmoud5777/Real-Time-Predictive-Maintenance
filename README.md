@@ -1,62 +1,82 @@
-# FOG - Collaborative Fog Computing for Real-Time Predictive Maintenance
+# FOG - MP3 : Industrial Cloud Backend, Data Management and Analytics
 
-Plateforme virtuelle de maintenance predictive : 12 machines simulees (3 zones A/B/C),
-analyse locale sur 3 noeuds Fog, equilibre de charge par migration de taches,
-tolerance aux pannes, backend Cloud central et dashboard industriel.
+Depot **exclusivement** dedie au mini-projet 3 de la plateforme
+« Collaborative Fog Computing for Real-Time Predictive Maintenance ».
 
-## Organisation du depot
+Perimetre : couche Cloud. Collecter les resultats des nœuds Fog, les stocker proprement dans
+PostgreSQL, exposer une API REST documentee et calculer les KPI usine.
 
-| Dossier | Responsable | Perimetre |
-|---|---|---|
-| `mp1-simulator/` | Member 1 | Simulation des machines + modele ML de detection |
-| `mp2-fog/` | Member 2 | Services Fog A/B/C, scheduler, migration, fault tolerance |
-| `mp3-cloud/` | **Member 3** | API Cloud, PostgreSQL, ingestion MQTT, analytics, KPI |
-| `mp4-dashboard/` | Member 4 | Dashboard React, Prometheus/Grafana, Docker Compose global, CI |
-| `contracts/` | Tous | Formats JSON partages + contrat OpenAPI (figes en semaine 1) |
-| `docs/` | Tous | Regles d integration, architecture, guide de demonstration |
-| `infra/` | Member 4 + MP3 | Configuration Mosquitto, docker-compose partage |
-| `scripts/` | Tous | Utilitaires transverses (seed, demo, verification) |
+## Contenu du depot
 
-## Branche par mini-projet
-
-Chaque membre travaille uniquement sur sa branche, puis ouvre une pull request vers `main`.
-
-```bash
-git checkout -b mp1/simulator     # Member 1
-git checkout -b mp2/fog           # Member 2
-git checkout -b mp3/cloud         # Member 3
-git checkout -b mp4/dashboard     # Member 4
+```
+mp3-cloud/          backend FastAPI + PostgreSQL (code, tests, migrations, seed)
+contracts/          formats JSON acceptes + contrat OpenAPI publie par ce module
+docs/               architecture et contrat de donnees tel que vu depuis le Cloud
+infra/              configuration Mosquitto utilisee pour l ingestion
 ```
 
-Autres branches autorisees : `feat/<portee>/<sujet>`, `fix/<portee>/<sujet>`,
-`chore/<portee>/<sujet>` (ex. `chore/mp3/migrations`).
+## Ce qui est volontairement absent
 
-## Démarrage rapide (MP3 - backend Cloud)
+Les mini-projets 1 (simulateur + ML), 2 (nœuds Fog + scheduler) et 4 (dashboard + DevOps)
+ne vivent **pas** ici. Ils ont leurs propres depots et branches. Ce depot ne contient que ce
+que je livre et que je peux faire tourner seul.
+
+Ce que j'en garde, sans en ecrire le code : la **definition exacte des messages entrants**
+(`docs/DATA_CONTRACT.md`) et le **contrat sortant** (`contracts/openapi.yaml`). C'est la seule
+frontiere qui doit rester commune, sinon mon integration contredit les autres.
+
+## Démarrage
+
+Le [guide d’autonomie MP3](GUIDE_AUTONOMIE_MP3.md) détaille le démarrage sous
+PowerShell, les essais sans MP2 et les vérifications du backend.
 
 ```bash
 cd mp3-cloud
 cp .env.example .env
 docker compose up -d db mosquitto
-python -m venv .venv && . .venv/bin/activate    # Windows: .venv\Scripts\activate
+python -m venv .venv && . .venv/bin/activate     # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
 alembic upgrade head
+python -m scripts.init_catalogue
+docker compose up -d --build ingest
 uvicorn app.main:app --reload
 ```
 
-Swagger : http://localhost:8000/docs
+| URL | Role |
+|---|---|
+| http://localhost:8000/docs | Swagger / OpenAPI interactif |
+| http://localhost:8000/healthz | Health check (Docker, CI, supervision) |
+| http://localhost:8000/metrics | Metriques Prometheus |
+| http://127.0.0.1:8001/metrics | Metriques du worker MQTT |
 
-## Regles non negociables
+## Verification
 
-1. Les secrets vivent dans `.env`, jamais commités.
-2. Tout timestamp est en **UTC** (`timestamptz` en base, ISO-8601 dans les JSON).
-3. Un changement dans `contracts/` doit etre annonce a l equipe avant le merge.
-4. Chaque merge passe par une pull request + tests verts.
-5. Le dashboard (MP4) ne lit **jamais** la base ni les services Fog directement : il passe par l API MP3.
+```bash
+cd mp3-cloud
+python -m ruff check .            # lint
+python -m pytest                  # tests unitaires + contrat HTTP
+python -m pytest --postgres       # migrations + integrite dans une base jetable distincte
+python -m pytest --mqtt           # inclut PostgreSQL et un broker MQTT jetable
+python scripts/check_contract.py  # fixtures valides acceptees, invalides rejetees
+python scripts/seed.py --scenario degradation --zone A --duration 60 --dump
+```
 
-## Documentation
+## Plan de livraison
 
-- `docs/TEAM_RULES.md` - conventions Git, revues, definition of done
-- `docs/ARCHITECTURE.md` - flux de donnees de bout en bout
-- `docs/DATA_CONTRACT.md` - formats JSON partages
-- `mp3-cloud/README.md` - perimetre et livrables du backend Cloud
+Les 12 taches, priorites, efforts et criteres de fin sont dans
+`mp3-cloud/TASKS.md`. Les decisions de conception justifiees sont dans
+`mp3-cloud/docs/API_DESIGN.md` et les formules de KPI dans `mp3-cloud/docs/KPI_FORMULAS.md`.
+Le schema et les commandes de l'etape 2 sont dans
+[DATABASE_SCHEMA.md](mp3-cloud/docs/DATABASE_SCHEMA.md).
+Les entrees HTTP et MQTT sont realisees : voir
+[HTTP_INGESTION.md](mp3-cloud/docs/HTTP_INGESTION.md) et
+[MQTT_INGESTION.md](mp3-cloud/docs/MQTT_INGESTION.md). L'etape 4 est verifiee avec 149 tests.
+L'etape suivante complete les API de lecture pour le dashboard.
 
+## Regles internes
+
+1. Un seul dossier de code : `mp3-cloud/`. Aucune fonctionnalite d un autre mini-projet n y entre.
+2. Les secrets restent dans `.env` ; seul `.env.example` est versionné.
+3. Tous les timestamps sont UTC (`timestamptz` en base, ISO-8601 avec `Z` dans les JSON).
+4. Une tache = une branche courte (`feat/mp3/...`, `fix/mp3/...`), merge par PR vers `main`.
+5. Modifier `contracts/` = changement visible par mes collegues : a annoncer explicitement.

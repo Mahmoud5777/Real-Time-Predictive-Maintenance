@@ -24,15 +24,36 @@ paths:
     post:
       tags: [ingest]
       summary: Ingestion HTTP de secours (seed, tests, rejeu)
+      description: >
+        Ecritures confirmees par transaction. Les erreurs metier sont isolees par element.
+        Une retransmission identique est un doublon sans effet ; reutiliser le meme
+        message_id avec un autre contenu est rejete. Un lot de doublons seuls recoit 207.
       requestBody:
         required: true
         content:
           application/json:
             schema: { $ref: '#/components/schemas/BatchRequest' }
       responses:
-        '207': { description: Resultat par element, content: { application/json: { schema: { $ref: '#/components/schemas/BatchReport' } } } }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '400': { $ref: '#/components/responses/Problem' }
+        '207': { description: Lot confirme avec au moins une insertion ou un doublon, content: { application/json: { schema: { $ref: '#/components/schemas/BatchReport' } } } }
+        '401':
+          description: Token absent ou invalide, reponse existante de la dependance
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IngestUnauthorized' }
+        '422':
+          description: Tous les messages rejetes ou enveloppe FastAPI invalide
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - { $ref: '#/components/schemas/BatchRejected' }
+                  - { $ref: '#/components/schemas/RequestValidationError' }
+        '503':
+          description: Transaction non confirmee, sans compteur de succes ; rejeu avec les memes identifiants
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
   /machines:
     get:
       tags: [machines]
@@ -237,6 +258,7 @@ components:
       properties:
         messages:
           type: array
+          minItems: 1
           maxItems: 5000
           items:
             type: object
@@ -246,18 +268,45 @@ components:
               payload: { type: object }
     BatchReport:
       type: object
+      required: [accepted, duplicates, rejected, errors]
       properties:
-        accepted: { type: integer }
-        duplicates: { type: integer }
-        rejected: { type: integer }
+        accepted: { type: integer, minimum: 0, description: Messages nouvellement enregistres apres commit }
+        duplicates: { type: integer, minimum: 0, description: Retransmissions identiques sans nouvel effet }
+        rejected: { type: integer, minimum: 0, description: Erreurs de validation ou de coherence isolees }
         errors:
           type: array
           items:
             type: object
+            required: [index, code, detail]
             properties:
-              index: { type: integer }
+              index: { type: integer, minimum: 0 }
               code: { type: string }
               detail: { type: string }
+    BatchRejected:
+      allOf:
+        - { $ref: '#/components/schemas/Problem' }
+        - { $ref: '#/components/schemas/BatchReport' }
+        - type: object
+          required: [code]
+          properties:
+            code: { type: string, enum: [NO_VALID_MESSAGE] }
+    RequestValidationError:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: array
+          items: { type: object }
+    IngestUnauthorized:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: object
+          required: [type, title]
+          properties:
+            type: { type: string }
+            title: { type: string }
     PageMeta:
       type: object
       properties:

@@ -8,7 +8,10 @@ from app.schemas.common import MessageBase, UtcDatetime
 Zone = Literal["A", "B", "C"]
 FogId = Literal["FOG_A", "FOG_B", "FOG_C"]
 MACHINE_PATTERN = r"^M(0[1-9]|1[0-2])$"
-UUID_PATTERN = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+UUID_PATTERN = (
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-"
+    r"[0-9a-fA-F]{12}$"
+)
 
 
 class MachineData(MessageBase):
@@ -39,13 +42,13 @@ class PredictionResult(MessageBase):
         "NONE", "BEARING_WEAR", "OVERHEATING", "IMBALANCE", "ELECTRICAL_OVERLOAD", "MISALIGNMENT"
     ]
     severity: Literal["NORMAL", "WARNING", "CRITICAL"]
-    model_version: str = Field(min_length=1)
+    model_version: str = Field(min_length=1, max_length=64)
 
 
 class AlertMessage(MessageBase):
     """Section 3 - alerte avec cycle de vie pilote par le Cloud."""
 
-    alert_id: str = Field(min_length=1)
+    alert_id: str = Field(min_length=1, max_length=64)
     machine_id: str = Field(pattern=MACHINE_PATTERN)
     fog_id: FogId
     timestamp: UtcDatetime
