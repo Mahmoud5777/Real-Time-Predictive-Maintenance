@@ -1,0 +1,21 @@
+
+# API framework
+fastapi
+uvicorn[standard]
+
+# MQTT communication
+paho-mqtt
+
+# System resource monitoring
+psutil
+
+# Data validation and configuration
+pydantic
+pydantic-settings
+
+# Testing
+pytest
+httpx
+
+# Utilities
+python-dotenv
