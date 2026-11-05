@@ -1,6 +1,8 @@
 
 import asyncio
+import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException
 
@@ -10,12 +12,24 @@ from .config import config
 from ..common.queue_manager import QueueManager
 from ..common.processor import TaskProcessor
 from ..common.monitor import ResourceMonitor
+from mqtt.mqtt_client import MQTTClient
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 # Initialize Fog components
 queue_manager = QueueManager(config)
 processor = TaskProcessor(queue_manager, config)
 monitor = ResourceMonitor(config)
+
+# Initialize MQTT client
+mqtt_client = MQTTClient(
+    client_id=config.fog_id,
+    broker_host="127.0.0.1",
+    broker_port=1883,
+)
 
 # Store processed task events
 task_history = []
@@ -29,20 +43,68 @@ async def task_worker():
         task_history.append(event)
 
 
+async def heartbeat_worker():
+    """Periodically publish Fog node status through MQTT."""
+
+    while True:
+        status = await asyncio.to_thread(
+            monitor.get_status,
+            queued_tasks=queue_manager.get_queue_size()
+        )
+
+        payload = status.model_dump(mode="json")
+        payload["zone"] = config.zone
+        payload["timestamp"] = datetime.now(timezone.utc).isoformat()
+
+        topic = f"fog/{config.fog_id}/status"
+
+        mqtt_client.publish(topic, payload)
+
+        logger.info("MQTT heartbeat published: %s", topic)
+
+        await asyncio.sleep(5)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage Fog application lifecycle."""
 
+    logger.info("Starting %s", config.fog_id)
+
+    # Connect to MQTT broker
+    mqtt_client.connect()
+
+    # Wait for MQTT connection
+    for _ in range(50):
+        if mqtt_client.client.is_connected():
+            break
+        await asyncio.sleep(0.1)
+
+    if mqtt_client.client.is_connected():
+        logger.info("Connected to MQTT broker")
+    else:
+        logger.warning("MQTT broker connection not confirmed")
+
+    # Start background workers
     worker = asyncio.create_task(task_worker())
+    heartbeat = asyncio.create_task(heartbeat_worker())
 
     yield
 
+    # Stop background workers
     worker.cancel()
+    heartbeat.cancel()
 
-    try:
-        await worker
-    except asyncio.CancelledError:
-        pass
+    await asyncio.gather(
+        worker,
+        heartbeat,
+        return_exceptions=True
+    )
+
+    # Disconnect MQTT
+    mqtt_client.disconnect()
+
+    logger.info("Stopped %s", config.fog_id)
 
 
 app = FastAPI(
