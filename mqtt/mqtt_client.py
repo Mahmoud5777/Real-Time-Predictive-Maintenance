@@ -76,10 +76,9 @@ class MQTTClient:
         try:
             payload = json.loads(message.payload.decode("utf-8"))
 
-            callback = self.message_handlers.get(message.topic)
-
-            if callback:
-                callback(payload)
+            for topic_filter, callback in self.message_handlers.items():
+                if mqtt.topic_matches_sub(topic_filter, message.topic):
+                    callback(payload)
 
         except (json.JSONDecodeError, UnicodeDecodeError) as exc:
             logger.error("Invalid MQTT message: %s", exc)
