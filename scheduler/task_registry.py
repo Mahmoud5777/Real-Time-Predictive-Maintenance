@@ -61,22 +61,27 @@ class TaskRegistry:
         self,
         task_id: str,
         destination_fog: str,
-    ) -> bool:
-        """Update the destination after task reassignment."""
+    ) -> None:
+        """Update the destination after successful task recovery."""
 
         with self._lock:
             task = self._tasks.get(task_id)
 
             if task is None:
-                return False
+                return
 
             task["destination_fog"] = destination_fog
-            task["status"] = "RECOVERED"
-            task["attempts"] += 1
-            task["updated_at"] = datetime.now(
-                timezone.utc
-            ).isoformat()
 
+            # Keep RUNNING or COMPLETED if an MQTT event
+            # arrived before this update.
+            if task["status"] == "RECOVERING":
+                task["status"] = "RECOVERED"
+
+            task["attempts"] += 1
+            task["updated_at"] = datetime.now(timezone.utc).isoformat()
+            task.pop("recovery_previous_status", None)
+            if task_id not in self._tasks:
+                return False
             return True
 
     def get_task(self, task_id: str):
@@ -96,24 +101,73 @@ class TaskRegistry:
     def get_node_tasks(
         self,
         fog_id: str,
-        statuses: tuple = ("PENDING", "RUNNING"),
+        statuses: tuple = ("PENDING", "ACCEPTED", "RUNNING"),
     ) -> list[dict]:
-        """Return unfinished tasks assigned to a Fog node."""
+        """
+        Return unfinished tasks assigned to a specific Fog node.
+        These tasks may be candidates for fault recovery.
+        """
 
         with self._lock:
             return [
                 deepcopy(task)
                 for task in self._tasks.values()
-                if task["destination_fog"] == fog_id
-                and task["status"] in statuses
+                if (
+                    task["destination_fog"] == fog_id
+                    and task["status"] in statuses
+                )
             ]
 
-    def get_tasks_by_status(self, status: str) -> list[dict]:
-        """Return tasks matching a given status."""
+    def claim_tasks_for_recovery(self, fog_id: str) -> list[dict]:
+        """
+        Atomically reserve unfinished tasks for fault recovery.
+        Prevents the same task from being recovered multiple times.
+        """
+
+        recoverable_statuses = (
+            "PENDING",
+            "ACCEPTED",
+            "RUNNING",
+        )
+
+        claimed_tasks = []
 
         with self._lock:
-            return [
-                deepcopy(task)
-                for task in self._tasks.values()
-                if task["status"] == status
-            ]
+            for task in self._tasks.values():
+
+                if (
+                    task["destination_fog"] == fog_id
+                    and task["status"] in recoverable_statuses
+                ):
+                    task["recovery_previous_status"] = task["status"]
+                    task["status"] = "RECOVERING"
+                    task["updated_at"] = datetime.now(
+                        timezone.utc
+                    ).isoformat()
+
+                    claimed_tasks.append(deepcopy(task))
+
+        return claimed_tasks
+
+    def release_recovery_claim(self, task_id: str) -> bool:
+        """
+        Restore the previous status if task recovery fails.
+        """
+
+        with self._lock:
+            task = self._tasks.get(task_id)
+
+            if task is None or task["status"] != "RECOVERING":
+                return False
+
+            previous_status = task.pop(
+                "recovery_previous_status",
+                "PENDING",
+            )
+
+            task["status"] = previous_status
+            task["updated_at"] = datetime.now(
+                timezone.utc
+            ).isoformat()
+
+            return True

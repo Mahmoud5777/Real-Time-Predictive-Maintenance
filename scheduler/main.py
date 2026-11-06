@@ -14,6 +14,7 @@ from scheduler.node_registry import NodeRegistry
 from scheduler.task_registry import TaskRegistry
 from scheduler.scheduling_policy import (
     select_destination,
+    select_recovery_destination,
     calculate_node_score,
 )
 from shared.models import TaskRequest
@@ -93,15 +94,15 @@ def handle_task_event(payload: dict):
     with pending_events_lock:
         registered_task = task_registry.get_task(task_id)
 
-        if registered_task is None:
-            # The Fog node may process the task before the
-            # dispatch endpoint finishes registering it.
+        if (
+            registered_task is None
+            or registered_task.get("status") == "RECOVERING"
+        ):
             pending_task_events[task_id] = payload
 
             logger.info(
-                "Task event temporarily stored: %s (%s)",
+                "Buffered task event for task %s",
                 task_id,
-                status,
             )
             return
 
@@ -118,14 +119,142 @@ def handle_task_event(payload: dict):
 # Node monitoring
 # --------------------------------------------------
 
+async def recover_tasks_from_failed_node(failed_fog_id: str):
+    """
+    Recover unfinished tasks from an offline Fog node.
+    """
+
+    logger.warning(
+        "Starting task recovery for failed node %s",
+        failed_fog_id,
+    )
+
+    # Atomically claim unfinished tasks.
+    tasks = task_registry.claim_tasks_for_recovery(
+        failed_fog_id
+    )
+
+    if not tasks:
+        logger.info(
+            "No recoverable tasks found on %s",
+            failed_fog_id,
+        )
+        return
+
+    logger.info(
+        "%s task(s) reserved for recovery from %s",
+        len(tasks),
+        failed_fog_id,
+    )
+
+    # Find the best replacement node.
+    destination = select_recovery_destination(
+        failed_fog_id=failed_fog_id,
+        nodes=node_registry.get_all_nodes(),
+    )
+
+    if destination is None:
+        logger.error(
+            "No available replacement Fog node for %s",
+            failed_fog_id,
+        )
+
+        for task in tasks:
+            task_registry.release_recovery_claim(
+                task["task_id"]
+            )
+
+        return
+
+    destination_fog_id = destination["fog_id"]
+
+    logger.info(
+        "Recovery destination selected: %s",
+        destination_fog_id,
+    )
+    destination_url = FOG_NODE_URLS.get(destination_fog_id)
+
+    if destination_url is None:
+        logger.error(
+            "No URL configured for recovery destination %s",
+            destination_fog_id,
+        )
+
+        for task in tasks:
+            task_registry.release_recovery_claim(
+                task["task_id"]
+            )
+
+        return
+
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        for task in tasks:
+            task_id = task["task_id"]
+
+            try:
+                task_data = task["task"]
+
+                response = await client.post(
+                    f"{destination_url}/tasks/receive",
+                    json=task_data,
+                )
+
+                response.raise_for_status()
+
+                # Update the registry after successful dispatch.
+                with pending_events_lock:
+                    updated = task_registry.update_destination(
+                        task_id,
+                        destination_fog_id,
+                    )
+
+                    if updated:
+                        # Apply an MQTT event received during recovery.
+                        pending_event = pending_task_events.pop(
+                            task_id,
+                            None,
+                        )
+
+                        if pending_event:
+                            task_registry.update_task_status(
+                                task_id,
+                                pending_event["status"],
+                            )
+
+                if not updated:
+                    logger.error(
+                        "Could not update registry for recovered task %s",
+                        task_id,
+                    )
+                    continue
+
+                logger.info(
+                    "Task %s successfully sent to %s",
+                    task_id,
+                    destination_fog_id,
+                )
+
+            except (httpx.HTTPError, KeyError, TypeError) as exc:
+                logger.exception(
+                    "Failed to recover task %s: %s",
+                    task_id,
+                    exc,
+                )
+
+                task_registry.release_recovery_claim(
+                    task_id
+                )
+
 async def monitor_nodes():
-    """Periodically detect Fog nodes that stopped sending heartbeats."""
+    """Periodically detect offline Fog nodes and recover their tasks."""
 
     while True:
         offline_nodes = node_registry.check_offline_nodes()
 
         for fog_id in offline_nodes:
             logger.warning("Fog node %s is OFFLINE", fog_id)
+
+            await recover_tasks_from_failed_node(fog_id)
 
         await asyncio.sleep(2)
 

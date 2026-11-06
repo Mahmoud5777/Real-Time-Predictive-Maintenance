@@ -51,3 +51,29 @@ def select_destination(
         return None
 
     return min(candidates, key=calculate_node_score)
+
+
+def select_recovery_destination(failed_fog_id: str, nodes: list[dict]):
+    """
+    Select the best available Fog node to recover tasks
+    from a failed Fog node.
+
+    Unlike normal scheduling, recovery accepts all priorities,
+    including HIGH.
+    """
+
+    candidates = [
+        node
+        for node in nodes
+        if (
+            node["fog_id"] != failed_fog_id
+            and node.get("availability") == "ONLINE"
+            and node.get("status") == "ONLINE"
+        )
+    ]
+
+    if not candidates:
+        return None
+
+    return min(candidates, key=calculate_node_score)
+
