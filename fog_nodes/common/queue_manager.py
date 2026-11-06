@@ -24,7 +24,6 @@ class QueueManager:
     def __init__(self, config, max_size: int | None = None):
         self.config = config
 
-        # Create a priority queue
         queue_size = (
             max_size
             if max_size is not None
@@ -32,22 +31,39 @@ class QueueManager:
         )
 
         self._queue = asyncio.PriorityQueue(maxsize=queue_size)
-
-        # Unique sequence number for each task
         self._counter = count()
 
-    def add_task(self, task: TaskRequest) -> None:
-        """Add a task to the priority queue."""
+        # Track task IDs to prevent duplicate queued tasks
+        self._queued_task_ids = set()
+        # Track tasks already accepted by this Fog node
+        self._known_task_ids = set()
+
+    def add_task(self, task: TaskRequest) -> bool:
+        """Add a task only if it has never been accepted before."""
+
+        task_id = task.task_id
+
+        if task_id in self._known_task_ids:
+            return False
 
         priority = self.PRIORITY_LEVELS[task.priority]
         sequence = next(self._counter)
 
         self._queue.put_nowait((priority, sequence, task))
 
+        self._queued_task_ids.add(task_id)
+        self._known_task_ids.add(task_id)
+
+        return True
+
     async def get_task(self) -> TaskRequest:
         """Retrieve the next task according to priority."""
 
         _, _, task = await self._queue.get()
+
+        # The task is no longer waiting in the queue.
+        self._queued_task_ids.discard(task.task_id)
+
         return task
 
     def task_done(self) -> None:

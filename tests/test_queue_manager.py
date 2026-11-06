@@ -87,3 +87,51 @@ def test_queue_size():
 
     assert manager.get_queue_size() == 2
     assert manager.is_empty() is False
+
+
+def test_duplicate_task_is_rejected_while_queued():
+
+    manager = QueueManager(config, max_size=10)
+
+    task = create_task("task-duplicate-1", TaskPriority.HIGH)
+
+    assert manager.add_task(task) is True
+    assert manager.add_task(task) is False
+
+    assert manager.get_queue_size() == 1
+
+
+def test_duplicate_task_is_rejected_after_dequeue():
+
+    async def run_test():
+
+        manager = QueueManager(config, max_size=10)
+
+        task = create_task("task-duplicate-2", TaskPriority.HIGH)
+
+        assert manager.add_task(task) is True
+
+        retrieved = await manager.get_task()
+        manager.task_done()
+
+        assert retrieved.task_id == task.task_id
+
+        # The task must remain known after leaving the queue.
+        assert manager.add_task(task) is False
+
+        assert manager.get_queue_size() == 0
+
+    asyncio.run(run_test())
+
+
+def test_different_tasks_are_accepted():
+
+    manager = QueueManager(config, max_size=10)
+
+    task_1 = create_task("task-unique-1", TaskPriority.HIGH)
+    task_2 = create_task("task-unique-2", TaskPriority.MEDIUM)
+
+    assert manager.add_task(task_1) is True
+    assert manager.add_task(task_2) is True
+
+    assert manager.get_queue_size() == 2

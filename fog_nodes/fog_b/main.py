@@ -145,7 +145,13 @@ async def get_status():
 async def submit_task(task: TaskRequest):
 
     try:
-        queue_manager.add_task(task)
+        accepted = queue_manager.add_task(task)
+
+        if not accepted:
+            raise HTTPException(
+                status_code=409,
+                detail="Task already known by this Fog node"
+            )
 
     except asyncio.QueueFull:
         raise HTTPException(
@@ -178,7 +184,13 @@ async def receive_migrated_task(task: TaskRequest):
         )
 
     try:
-        queue_manager.add_task(task)
+        accepted = queue_manager.add_task(task)
+
+        if not accepted:
+            raise HTTPException(
+                status_code=409,
+                detail="Task already known by this Fog node"
+            )
 
     except asyncio.QueueFull:
         raise HTTPException(
@@ -205,7 +217,13 @@ async def receive_local_task(task: TaskRequest):
     """Enqueue a task for local execution."""
 
     try:
-        queue_manager.add_task(task)
+        accepted = queue_manager.add_task(task)
+
+        if not accepted:
+            raise HTTPException(
+                status_code=409,
+                detail="Task already known by this Fog node"
+            )
     except asyncio.QueueFull:
         raise HTTPException(
             status_code=503,
