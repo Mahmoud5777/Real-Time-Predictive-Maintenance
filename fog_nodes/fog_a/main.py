@@ -18,13 +18,7 @@ from mqtt.mqtt_client import MQTTClient
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
 # Initialize Fog components
-processor = TaskProcessor(
-    queue_manager,
-    config,
-    mqtt_client,
-)
 queue_manager = QueueManager(config)
 
 monitor = ResourceMonitor(config)
@@ -34,6 +28,13 @@ mqtt_client = MQTTClient(
     client_id=config.fog_id,
     broker_host="127.0.0.1",
     broker_port=1883,
+)
+
+# Initialize task processor
+processor = TaskProcessor(
+    queue_manager=queue_manager,
+    config=config,
+    mqtt_client=mqtt_client,
 )
 
 # Store processed task events

@@ -19,13 +19,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-# Initialize Fog B components
+
+# Initialize Fog components
 queue_manager = QueueManager(config)
-processor = TaskProcessor(
-    queue_manager,
-    config,
-    mqtt_client,
-)
+
 monitor = ResourceMonitor(config)
 
 # Initialize MQTT client
@@ -35,8 +32,16 @@ mqtt_client = MQTTClient(
     broker_port=1883,
 )
 
+# Initialize task processor
+processor = TaskProcessor(
+    queue_manager=queue_manager,
+    config=config,
+    mqtt_client=mqtt_client,
+)
+
 # Store processed task events
 task_history = []
+
 
 
 async def task_worker():
