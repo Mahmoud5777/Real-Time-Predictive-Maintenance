@@ -13,12 +13,34 @@ from .queue_manager import QueueManager
 
 class TaskProcessor:
     """
-    Execute industrial tasks locally on a Fog Node.
+    Execute industrial tasks locally on a Fog Node
+    and publish task lifecycle events through MQTT.
     """
 
-    def __init__(self, queue_manager: QueueManager, config):
+    def __init__(
+        self,
+        queue_manager: QueueManager,
+        config,
+        mqtt_client=None,
+    ):
         self.queue_manager = queue_manager
         self.config = config
+        self.mqtt_client = mqtt_client
+
+    def _publish_task_event(self, event: TaskEvent) -> None:
+        """Publish a task lifecycle event through MQTT."""
+
+        if self.mqtt_client is None:
+            return
+
+        topic = f"fog/{self.config.fog_id}/tasks/events"
+
+        payload = event.model_dump(mode="json")
+
+        self.mqtt_client.publish(
+            topic,
+            payload,
+        )
 
     def _detect_anomalies(
         self,
@@ -63,8 +85,6 @@ class TaskProcessor:
     ) -> dict[str, Any]:
         """
         Estimate a failure risk using a simple rule-based approach.
-
-        This is a baseline heuristic, not a trained ML model.
         """
 
         detection = self._detect_anomalies(payload)
@@ -120,11 +140,22 @@ class TaskProcessor:
             )
 
     async def process_next(self) -> TaskEvent:
-        """Retrieve and execute one task from the priority queue."""
+        """Retrieve, execute and report one task."""
 
         task = await self.queue_manager.get_task()
 
-        completed_at = datetime.now(timezone.utc)
+        started_at = datetime.now(timezone.utc)
+
+        running_event = TaskEvent(
+            task_id=task.task_id,
+            source_fog=task.source_fog,
+            destination_fog=self.config.fog_id,
+            priority=task.priority,
+            status=TaskStatus.RUNNING,
+            created_at=task.created_at,
+        )
+
+        self._publish_task_event(running_event)
 
         try:
             result = self.execute(task)
@@ -137,12 +168,19 @@ class TaskProcessor:
         finally:
             self.queue_manager.task_done()
 
-        return TaskEvent(
+        completed_at = datetime.now(timezone.utc)
+
+        final_event = TaskEvent(
             task_id=task.task_id,
             source_fog=task.source_fog,
+            destination_fog=self.config.fog_id,
             priority=task.priority,
             status=status,
             created_at=task.created_at,
             completed_at=completed_at,
-            result=result
+            result=result,
         )
+
+        self._publish_task_event(final_event)
+
+        return final_event

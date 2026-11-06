@@ -20,8 +20,13 @@ logger = logging.getLogger(__name__)
 
 
 # Initialize Fog components
+processor = TaskProcessor(
+    queue_manager,
+    config,
+    mqtt_client,
+)
 queue_manager = QueueManager(config)
-processor = TaskProcessor(queue_manager, config)
+
 monitor = ResourceMonitor(config)
 
 # Initialize MQTT client
@@ -146,8 +151,74 @@ async def submit_task(task: TaskRequest):
         )
 
     return {
-        "message": "Task accepted",
+        "message": "Task accepted locally",
         "task_id": task.task_id,
+        "fog_id": config.fog_id,
+        "status": TaskStatus.PENDING
+    }
+
+
+@app.post("/tasks/receive", status_code=202)
+async def receive_migrated_task(task: TaskRequest):
+    """Receive a task migrated from another Fog node."""
+
+    if task.source_fog is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Source Fog node is required for migrated tasks"
+        )
+
+    if task.source_fog == config.fog_id:
+        raise HTTPException(
+            status_code=400,
+            detail="A Fog node cannot receive its own migrated task"
+        )
+
+    try:
+        queue_manager.add_task(task)
+
+    except asyncio.QueueFull:
+        raise HTTPException(
+            status_code=503,
+            detail="Destination Fog queue is full"
+        )
+
+    logger.info(
+        "Migrated task %s received from %s",
+        task.task_id,
+        task.source_fog
+    )
+
+    return {
+        "message": "Migrated task accepted",
+        "task_id": task.task_id,
+        "source_fog": task.source_fog,
+        "destination_fog": config.fog_id,
+        "status": TaskStatus.PENDING
+    }
+
+@app.post("/tasks/local", status_code=202)
+async def receive_local_task(task: TaskRequest):
+    """Enqueue a task for local execution."""
+
+    try:
+        queue_manager.add_task(task)
+    except asyncio.QueueFull:
+        raise HTTPException(
+            status_code=503,
+            detail="Local Fog queue is full"
+        )
+
+    logger.info(
+        "Local task %s accepted by %s",
+        task.task_id,
+        config.fog_id
+    )
+
+    return {
+        "message": "Task accepted for local execution",
+        "task_id": task.task_id,
+        "fog_id": config.fog_id,
         "status": TaskStatus.PENDING
     }
 
