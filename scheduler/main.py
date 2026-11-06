@@ -527,7 +527,7 @@ async def dispatch_task(request: DispatchRequest):
         )
 
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.post(
                 f"{destination_url}{endpoint}",
                 json=task.model_dump(mode="json"),
