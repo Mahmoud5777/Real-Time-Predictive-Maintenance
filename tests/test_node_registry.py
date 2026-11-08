@@ -80,3 +80,43 @@ def test_online_node_is_not_marked_offline():
 
     assert "fog-a" not in offline_nodes
     assert registry.get_node("fog-a")["availability"] == "ONLINE"
+
+def test_offline_node_returns_online_after_heartbeat():
+    registry = NodeRegistry(offline_timeout=1)
+
+    registry.update_node({
+        "fog_id": "fog-b",
+        "status": "ONLINE",
+        "zone": "B",
+    })
+
+    time.sleep(1.2)
+
+    offline_nodes = registry.check_offline_nodes()
+
+    assert "fog-b" in offline_nodes
+
+    assert registry.get_node("fog-b")["availability"] == "OFFLINE"
+    assert registry.get_failure_count("fog-b") == 1
+
+    # Fog B restarts and sends a new heartbeat.
+    registry.update_node({
+        "fog_id": "fog-b",
+        "status": "ONLINE",
+        "zone": "B",
+        "cpu_percent": 25.0,
+        "ram_percent": 40.0,
+        "queued_tasks": 0,
+    })
+
+    node = registry.get_node("fog-b")
+
+    assert node["availability"] == "ONLINE"
+    assert node["status"] == "ONLINE"
+    assert node["failure_count"] == 1
+    assert registry.get_failure_count("fog-b") == 1
+
+    # The recovered node must not be detected as offline again.
+    offline_nodes = registry.check_offline_nodes()
+
+    assert "fog-b" not in offline_nodes
