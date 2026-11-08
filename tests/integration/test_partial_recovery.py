@@ -352,3 +352,39 @@ async def test_recovery_handles_destination_failure_midway(
     assert {
         task["task_id"] for task in retry_claimed
     } == {"task-402", "task-403"}
+
+def test_recovered_tasks_are_not_reassigned_when_failed_fog_returns():
+    registry = TaskRegistry()
+
+    registry.register_task(
+        create_task("task-501"),
+        "fog-a",
+        "fog-b",
+    )
+
+    # Fog B fails and its task is claimed for recovery.
+    claimed = registry.claim_tasks_for_recovery("fog-b")
+
+    assert len(claimed) == 1
+
+    # The task is successfully recovered by Fog C.
+    assert registry.update_destination("task-501", "fog-c") is True
+
+    # Fog B comes back online.
+    # Its task must remain assigned to Fog C.
+    task = registry.get_task("task-501")
+
+    assert task["status"] == "RECOVERED"
+    assert task["destination_fog"] == "fog-c"
+
+    # A new recovery attempt for Fog B must not claim this task.
+    retry_claimed = registry.claim_tasks_for_recovery("fog-b")
+
+    assert retry_claimed == []
+
+    # Fog C remains the task's destination.
+    assert registry.get_node_tasks("fog-c") == []
+    assert registry.get_node_tasks(
+        "fog-c",
+        statuses=("RECOVERED",),
+    )[0]["task_id"] == "task-501"
