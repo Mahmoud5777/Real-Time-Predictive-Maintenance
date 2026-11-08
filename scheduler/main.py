@@ -106,7 +106,21 @@ def handle_task_event(payload: dict):
             )
             return
 
-        task_registry.update_task_status(task_id, status)
+        updated = task_registry.update_task_status(
+            task_id,
+            status,
+            destination_fog=payload.get("destination_fog"),
+        )
+
+        if not updated:
+            logger.warning(
+                "Ignored task event from an outdated or unknown destination: "
+                "task=%s, destination=%s, status=%s",
+                task_id,
+                payload.get("destination_fog"),
+                status,
+            )
+            return
 
     logger.info(
         "Task %s status updated through MQTT: %s",
@@ -219,6 +233,7 @@ async def recover_tasks_from_failed_node(failed_fog_id: str):
                             task_registry.update_task_status(
                                 task_id,
                                 pending_event["status"],
+                                destination_fog=pending_event.get("destination_fog"),
                             )
 
                 if not updated:
@@ -589,6 +604,7 @@ async def dispatch_task(request: DispatchRequest):
             task_registry.update_task_status(
                 task.task_id,
                 pending_event["status"],
+                destination_fog=pending_event.get("destination_fog"),
             )
 
             logger.info(

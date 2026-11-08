@@ -114,6 +114,9 @@ class TaskEvent(BaseModel):
     status: TaskStatus
 
     created_at: datetime
+    event_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
     completed_at: Optional[datetime] = None
 
     result: Optional[dict[str, Any]] = None

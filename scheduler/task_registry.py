@@ -37,18 +37,35 @@ class TaskRegistry:
                 "updated_at": now,
             }
 
+
     def update_task_status(
         self,
         task_id: str,
         status: str,
+        destination_fog: str | None = None,
     ) -> bool:
-        """Update the status of a registered task."""
+        """Update a task status while protecting terminal states and destination."""
 
         with self._lock:
             task = self._tasks.get(task_id)
 
             if task is None:
                 return False
+
+            # Ignore events from a previous Fog destination.
+            if (
+                destination_fog is not None
+                and destination_fog != task["destination_fog"]
+            ):
+                return False
+
+            current_status = task["status"]
+
+            # A completed or failed task cannot return to another state.
+            terminal_statuses = {"COMPLETED", "FAILED"}
+
+            if current_status in terminal_statuses:
+                return current_status == status
 
             task["status"] = status
             task["updated_at"] = datetime.now(
@@ -61,14 +78,14 @@ class TaskRegistry:
         self,
         task_id: str,
         destination_fog: str,
-    ) -> None:
+    ) -> bool:
         """Update the destination after successful task recovery."""
 
         with self._lock:
             task = self._tasks.get(task_id)
 
             if task is None:
-                return
+                return False
 
             task["destination_fog"] = destination_fog
 

@@ -151,4 +151,90 @@ def test_update_destination_clears_recovery_metadata():
     assert task["status"] == "RECOVERED"
     assert task["attempts"] == 2
     assert "recovery_previous_status" not in task
-    
+
+def test_completed_task_cannot_return_to_running():
+    registry = TaskRegistry()
+
+    registry.register_task(
+        create_task("task-010"),
+        "fog-a",
+        "fog-b",
+    )
+
+    assert registry.update_task_status("task-010", "COMPLETED") is True
+
+    updated = registry.update_task_status("task-010", "RUNNING")
+
+    assert updated is False
+    assert registry.get_task("task-010")["status"] == "COMPLETED"
+
+
+def test_failed_task_cannot_return_to_running():
+    registry = TaskRegistry()
+
+    registry.register_task(
+        create_task("task-011"),
+        "fog-a",
+        "fog-b",
+    )
+
+    assert registry.update_task_status("task-011", "FAILED") is True
+
+    updated = registry.update_task_status("task-011", "RUNNING")
+
+    assert updated is False
+    assert registry.get_task("task-011")["status"] == "FAILED"
+
+
+def test_repeated_terminal_status_is_accepted():
+    registry = TaskRegistry()
+
+    registry.register_task(
+        create_task("task-012"),
+        "fog-a",
+        "fog-b",
+    )
+
+    assert registry.update_task_status("task-012", "COMPLETED") is True
+    assert registry.update_task_status("task-012", "COMPLETED") is True
+
+    assert registry.get_task("task-012")["status"] == "COMPLETED"
+
+
+def test_ignore_event_from_previous_fog_destination():
+    registry = TaskRegistry()
+
+    registry.register_task(
+        create_task("task-013"),
+        "fog-a",
+        "fog-b",
+    )
+
+    updated = registry.update_task_status(
+        "task-013",
+        "COMPLETED",
+        destination_fog="fog-a",
+    )
+
+    assert updated is False
+    assert registry.get_task("task-013")["status"] == "PENDING"
+
+
+def test_accept_event_from_current_fog_destination():
+    registry = TaskRegistry()
+
+    registry.register_task(
+        create_task("task-014"),
+        "fog-a",
+        "fog-b",
+    )
+
+    updated = registry.update_task_status(
+        "task-014",
+        "COMPLETED",
+        destination_fog="fog-b",
+    )
+
+    assert updated is True
+    assert registry.get_task("task-014")["status"] == "COMPLETED"
+   
