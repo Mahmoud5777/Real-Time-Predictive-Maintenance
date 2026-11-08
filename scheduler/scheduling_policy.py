@@ -27,10 +27,8 @@ def select_destination(
     """
     Select the best destination Fog node for a task.
 
-    HIGH priority tasks are always kept locally.
-
-    MEDIUM and LOW priority tasks can be migrated
-    only when the source Fog node is DEGRADED.
+    All priorities (HIGH, MEDIUM, LOW) can be migrated
+    when the source Fog node is DEGRADED.
 
     The destination must be ONLINE and not DEGRADED.
     """
@@ -38,11 +36,7 @@ def select_destination(
     priority = getattr(task_priority, "value", task_priority)
     priority = str(priority).upper()
 
-    # HIGH priority tasks always stay local.
-    if priority == "HIGH":
-        return None
-
-    if priority not in ("MEDIUM", "LOW"):
+    if priority not in ("HIGH", "MEDIUM", "LOW"):
         return None
 
     # Find the source Fog node.
@@ -57,7 +51,7 @@ def select_destination(
     if source_node is None:
         return None
 
-    # Do not migrate if the source is not overloaded.
+    # Migrate only when the source is degraded.
     if source_node.get("status") != "DEGRADED":
         return None
 

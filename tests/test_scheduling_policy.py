@@ -67,14 +67,15 @@ def test_low_task_selects_best_node():
     assert destination["fog_id"] == "fog-b"
 
 
-def test_high_task_stays_local():
+def test_high_task_migrates_when_source_degraded():
     destination = select_destination(
         "HIGH",
         "fog-a",
         sample_nodes(),
     )
 
-    assert destination is None
+    assert destination is not None
+    assert destination["fog_id"] == "fog-b"
 
 
 def test_source_online_keeps_task_local():
