@@ -89,16 +89,17 @@ class TaskRegistry:
 
             task["destination_fog"] = destination_fog
 
-            # Keep RUNNING or COMPLETED if an MQTT event
-            # arrived before this update.
+            # Change status only if the task is still being recovered.
             if task["status"] == "RECOVERING":
                 task["status"] = "RECOVERED"
 
             task["attempts"] += 1
-            task["updated_at"] = datetime.now(timezone.utc).isoformat()
+            task["updated_at"] = datetime.now(
+                timezone.utc
+            ).isoformat()
+
             task.pop("recovery_previous_status", None)
-            if task_id not in self._tasks:
-                return False
+
             return True
 
     def get_task(self, task_id: str):

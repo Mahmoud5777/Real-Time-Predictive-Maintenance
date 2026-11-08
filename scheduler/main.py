@@ -1,6 +1,6 @@
-
 import asyncio
 import logging
+from time import monotonic
 from contextlib import asynccontextmanager
 from threading import Lock
 from typing import Literal
@@ -33,6 +33,11 @@ FOG_NODE_URLS = {
     "fog-b": "http://127.0.0.1:8002",
     "fog-c": "http://127.0.0.1:8003",
 }
+
+# Recovery retry configuration
+RECOVERY_RETRY_INTERVAL = 10  # seconds
+
+last_recovery_attempt = {}
 
 
 # --------------------------------------------------
@@ -261,13 +266,34 @@ async def recover_tasks_from_failed_node(failed_fog_id: str):
                 )
 
 async def monitor_nodes():
-    """Periodically detect offline Fog nodes and recover their tasks."""
+    """Detect offline Fog nodes and retry task recovery periodically."""
 
     while True:
         offline_nodes = node_registry.check_offline_nodes()
 
         for fog_id in offline_nodes:
             logger.warning("Fog node %s is OFFLINE", fog_id)
+
+        now = monotonic()
+
+        for node in node_registry.get_all_nodes():
+            fog_id = node["fog_id"]
+
+            if node["availability"] != "OFFLINE":
+                last_recovery_attempt.pop(fog_id, None)
+                continue
+
+            last_attempt = last_recovery_attempt.get(fog_id, 0)
+
+            if now - last_attempt < RECOVERY_RETRY_INTERVAL:
+                continue
+
+            last_recovery_attempt[fog_id] = now
+
+            logger.info(
+                "Retrying task recovery for offline node %s",
+                fog_id,
+            )
 
             await recover_tasks_from_failed_node(fog_id)
 
