@@ -1,4 +1,7 @@
+import httpx
+import pytest
 
+from scheduler import main as scheduler_main
 from scheduler.task_registry import TaskRegistry
 
 
@@ -55,3 +58,68 @@ def test_partial_recovery_allows_retry_only_for_failed_task():
 
     assert len(retry_claimed) == 1
     assert retry_claimed[0]["task_id"] == "task-103"
+
+@pytest.mark.asyncio
+async def test_recovery_releases_claim_when_destination_is_unavailable(
+    monkeypatch,
+):
+    registry = TaskRegistry()
+
+    registry.register_task(
+        create_task("task-201"),
+        "fog-a",
+        "fog-b",
+    )
+
+    # Use an isolated registry for the scheduler.
+    monkeypatch.setattr(
+        scheduler_main,
+        "task_registry",
+        registry,
+    )
+
+    # Simulate Fog C as the selected replacement.
+    monkeypatch.setattr(
+        scheduler_main,
+        "select_recovery_destination",
+        lambda failed_fog_id, nodes: {"fog_id": "fog-c"},
+    )
+
+    monkeypatch.setattr(
+        scheduler_main,
+        "FOG_NODE_URLS",
+        {"fog-c": "http://127.0.0.1:8003"},
+    )
+
+    # Simulate an unavailable destination.
+    class FailingAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def post(self, *args, **kwargs):
+            raise httpx.ConnectError("Fog C unavailable")
+
+    monkeypatch.setattr(
+        scheduler_main.httpx,
+        "AsyncClient",
+        FailingAsyncClient,
+    )
+
+    await scheduler_main.recover_tasks_from_failed_node("fog-b")
+
+    task = registry.get_task("task-201")
+
+    assert task["status"] == "PENDING"
+    assert task["destination_fog"] == "fog-b"
+
+    # The task must be claimable again.
+    retry_claimed = registry.claim_tasks_for_recovery("fog-b")
+
+    assert len(retry_claimed) == 1
+    assert retry_claimed[0]["task_id"] == "task-201"

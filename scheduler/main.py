@@ -246,6 +246,8 @@ async def recover_tasks_from_failed_node(failed_fog_id: str):
                         "Could not update registry for recovered task %s",
                         task_id,
                     )
+
+                    task_registry.release_recovery_claim(task_id)
                     continue
 
                 logger.info(
