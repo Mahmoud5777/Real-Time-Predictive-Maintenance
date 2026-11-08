@@ -1,7 +1,8 @@
-from scheduler.scheduling_policy import select_recovery_destination
+
 from scheduler.scheduling_policy import (
     calculate_node_score,
     select_destination,
+    select_recovery_destination,
 )
 
 
@@ -9,10 +10,10 @@ def sample_nodes():
     return [
         {
             "fog_id": "fog-a",
-            "status": "ONLINE",
+            "status": "DEGRADED",
             "availability": "ONLINE",
-            "cpu_percent": 70,
-            "ram_percent": 60,
+            "cpu_percent": 90,
+            "ram_percent": 85,
             "queued_tasks": 5,
         },
         {
@@ -76,20 +77,29 @@ def test_high_task_stays_local():
     assert destination is None
 
 
-def test_offline_node_is_never_selected():
+def test_source_online_keeps_task_local():
     nodes = sample_nodes()
+    nodes[0]["status"] = "ONLINE"
 
     destination = select_destination(
-        "MEDIUM",
+        "LOW",
         "fog-a",
         nodes,
     )
 
-    assert destination["fog_id"] != "fog-c"
+    assert destination is None
 
 
-def test_no_available_destination():
+def test_degraded_destinations_are_never_selected():
     nodes = [
+        {
+            "fog_id": "fog-a",
+            "status": "DEGRADED",
+            "availability": "ONLINE",
+            "cpu_percent": 90,
+            "ram_percent": 90,
+            "queued_tasks": 10,
+        },
         {
             "fog_id": "fog-b",
             "status": "DEGRADED",
@@ -97,7 +107,58 @@ def test_no_available_destination():
             "cpu_percent": 20,
             "ram_percent": 30,
             "queued_tasks": 1,
-        }
+        },
+        {
+            "fog_id": "fog-c",
+            "status": "DEGRADED",
+            "availability": "ONLINE",
+            "cpu_percent": 30,
+            "ram_percent": 40,
+            "queued_tasks": 2,
+        },
+    ]
+
+    destination = select_destination(
+        "LOW",
+        "fog-a",
+        nodes,
+    )
+
+    assert destination is None
+
+
+def test_offline_node_is_never_selected():
+    nodes = sample_nodes()
+    nodes[1]["availability"] = "OFFLINE"
+    nodes[1]["status"] = "OFFLINE"
+
+    destination = select_destination(
+        "MEDIUM",
+        "fog-a",
+        nodes,
+    )
+
+    assert destination is None
+
+
+def test_no_available_destination():
+    nodes = [
+        {
+            "fog_id": "fog-a",
+            "status": "DEGRADED",
+            "availability": "ONLINE",
+            "cpu_percent": 90,
+            "ram_percent": 90,
+            "queued_tasks": 5,
+        },
+        {
+            "fog_id": "fog-b",
+            "status": "DEGRADED",
+            "availability": "ONLINE",
+            "cpu_percent": 20,
+            "ram_percent": 30,
+            "queued_tasks": 1,
+        },
     ]
 
     destination = select_destination(
@@ -107,6 +168,7 @@ def test_no_available_destination():
     )
 
     assert destination is None
+
 
 def test_recovery_selects_best_online_node():
     nodes = [
@@ -164,4 +226,3 @@ def test_recovery_returns_none_without_available_nodes():
     destination = select_recovery_destination("fog-a", nodes)
 
     assert destination is None
-
