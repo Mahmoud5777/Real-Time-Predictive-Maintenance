@@ -106,6 +106,7 @@ class TaskEvent(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     task_id: str
+    task_type: str = "UNKNOWN"
 
     source_fog: Optional[str] = None
     destination_fog: Optional[str] = None
@@ -120,3 +121,6 @@ class TaskEvent(BaseModel):
     completed_at: Optional[datetime] = None
 
     result: Optional[dict[str, Any]] = None
+    started_at: Optional[datetime] = None
+    queue_wait_ms: Optional[float] = None
+    processing_time_ms: Optional[float] = None

@@ -1,10 +1,11 @@
-
 import asyncio
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import Response
+
+from shared.metrics import metrics
 
 from shared.models import TaskRequest, TaskStatus
 
@@ -59,6 +60,14 @@ async def heartbeat_worker():
         )
 
         payload = status.model_dump(mode="json")
+
+        metrics.record_node_snapshot(
+            fog_id=config.fog_id,
+            cpu=payload.get("cpu_percent") or 0,
+            ram=payload.get("ram_percent") or 0,
+            queued_tasks=payload.get("queued_tasks") or 0,
+        )
+
         payload["zone"] = config.zone
         payload["timestamp"] = datetime.now(timezone.utc).isoformat()
 
@@ -120,6 +129,12 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+@app.get("/metrics")
+async def get_prometheus_metrics():
+    return Response(
+        content=metrics.prometheus_data(),
+        media_type=metrics.prometheus_content_type,
+    )
 
 @app.get("/health")
 async def health():

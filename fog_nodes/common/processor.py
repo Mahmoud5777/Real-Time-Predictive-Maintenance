@@ -7,6 +7,7 @@ from shared.models import (
     TaskEvent,
     TaskStatus,
 )
+from shared.metrics import metrics
 
 from .queue_manager import QueueManager
 
@@ -83,9 +84,7 @@ class TaskProcessor:
         self,
         payload: dict[str, Any]
     ) -> dict[str, Any]:
-        """
-        Estimate a failure risk using a simple rule-based approach.
-        """
+        """Estimate a failure risk using a simple rule-based approach."""
 
         detection = self._detect_anomalies(payload)
 
@@ -140,19 +139,27 @@ class TaskProcessor:
             )
 
     async def process_next(self) -> TaskEvent:
-        """Retrieve, execute and report one task."""
+        """Retrieve, execute and report one task with performance metrics."""
 
         task = await self.queue_manager.get_task()
 
         started_at = datetime.now(timezone.utc)
 
+        queue_wait_ms = max(
+            (started_at - task.created_at).total_seconds() * 1000,
+            0,
+        )
+
         running_event = TaskEvent(
             task_id=task.task_id,
+            task_type=task.task_type,
             source_fog=task.source_fog,
             destination_fog=self.config.fog_id,
             priority=task.priority,
             status=TaskStatus.RUNNING,
             created_at=task.created_at,
+            started_at=started_at,
+            queue_wait_ms=queue_wait_ms,
         )
 
         self._publish_task_event(running_event)
@@ -170,15 +177,38 @@ class TaskProcessor:
 
         completed_at = datetime.now(timezone.utc)
 
+        processing_time_ms = max(
+            (completed_at - started_at).total_seconds() * 1000,
+            0,
+        )
+
+        end_to_end_ms = max(
+            (completed_at - task.created_at).total_seconds() * 1000,
+            0,
+        )
+
         final_event = TaskEvent(
             task_id=task.task_id,
+            task_type=task.task_type,
             source_fog=task.source_fog,
             destination_fog=self.config.fog_id,
             priority=task.priority,
             status=status,
             created_at=task.created_at,
+            started_at=started_at,
+            queue_wait_ms=queue_wait_ms,
+            processing_time_ms=processing_time_ms,
             completed_at=completed_at,
             result=result,
+        )
+
+        metrics.record_task_completion(
+            fog_id=self.config.fog_id,
+            task_type=task.task_type.upper(),
+            status=status.value,
+            queue_wait_ms=queue_wait_ms,
+            processing_time_ms=processing_time_ms,
+            end_to_end_ms=end_to_end_ms,
         )
 
         self._publish_task_event(final_event)

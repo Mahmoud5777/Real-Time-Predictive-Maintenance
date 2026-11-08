@@ -4,11 +4,13 @@ from time import monotonic
 from contextlib import asynccontextmanager
 from threading import Lock
 from typing import Literal
-
+from shared.metrics import metrics
+from datetime import datetime
 import httpx
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import Response, PlainTextResponse
 from pydantic import BaseModel
-
+from pathlib import Path
 from mqtt.mqtt_client import MQTTClient
 from scheduler.node_registry import NodeRegistry
 from scheduler.task_registry import TaskRegistry
@@ -38,6 +40,7 @@ FOG_NODE_URLS = {
 RECOVERY_RETRY_INTERVAL = 10  # seconds
 
 last_recovery_attempt = {}
+failure_detected_at = {}
 
 
 # --------------------------------------------------
@@ -78,16 +81,67 @@ mqtt_client = MQTTClient(
 pending_task_events = {}
 pending_events_lock = Lock()
 
+def handle_node_status(payload: dict):
+    """Update node state and collect its resource metrics."""
+
+    node_registry.update_node(payload)
+
+    fog_id = payload.get("fog_id")
+    if not fog_id:
+        return
+
+    metrics.record_node_snapshot(
+        fog_id=fog_id,
+        cpu=payload.get("cpu_percent") or 0,
+        ram=payload.get("ram_percent") or 0,
+        queued_tasks=payload.get("queued_tasks") or 0,
+    )
+
+
+def record_task_metrics(payload: dict):
+    """Record measurements from a final task lifecycle event."""
+
+    status = payload.get("status")
+
+    if status not in ("COMPLETED", "FAILED"):
+        return
+
+    created_at = payload.get("created_at")
+    completed_at = payload.get("completed_at")
+
+    end_to_end_ms = None
+
+    if created_at and completed_at:
+        try:
+            start = datetime.fromisoformat(
+                created_at.replace("Z", "+00:00")
+            )
+            end = datetime.fromisoformat(
+                completed_at.replace("Z", "+00:00")
+            )
+            end_to_end_ms = max(
+                (end - start).total_seconds() * 1000,
+                0,
+            )
+        except (ValueError, TypeError):
+            logger.warning("Invalid task timestamps: %s", payload)
+
+    metrics.record_task_completion(
+        fog_id=payload.get("destination_fog", "unknown"),
+        task_type=payload.get("task_type", "unknown"),
+        status=status,
+        queue_wait_ms=payload.get("queue_wait_ms"),
+        processing_time_ms=payload.get("processing_time_ms"),
+        end_to_end_ms=end_to_end_ms,
+    )
 
 # --------------------------------------------------
 # MQTT event handlers
 # --------------------------------------------------
 
+
 def handle_task_event(payload: dict):
-    """
-    Receive task lifecycle events from Fog nodes
-    and update the central task registry.
-    """
+    """Receive task lifecycle events and update task metrics."""
 
     task_id = payload.get("task_id")
     status = payload.get("status")
@@ -104,11 +158,7 @@ def handle_task_event(payload: dict):
             or registered_task.get("status") == "RECOVERING"
         ):
             pending_task_events[task_id] = payload
-
-            logger.info(
-                "Buffered task event for task %s",
-                task_id,
-            )
+            logger.info("Buffered task event for task %s", task_id)
             return
 
         updated = task_registry.update_task_status(
@@ -119,13 +169,13 @@ def handle_task_event(payload: dict):
 
         if not updated:
             logger.warning(
-                "Ignored task event from an outdated or unknown destination: "
-                "task=%s, destination=%s, status=%s",
+                "Ignored outdated task event: task=%s, destination=%s",
                 task_id,
                 payload.get("destination_fog"),
-                status,
             )
             return
+
+        record_task_metrics(payload)
 
     logger.info(
         "Task %s status updated through MQTT: %s",
@@ -138,59 +188,42 @@ def handle_task_event(payload: dict):
 # Node monitoring
 # --------------------------------------------------
 
+
 async def recover_tasks_from_failed_node(failed_fog_id: str):
-    """
-    Recover unfinished tasks from an offline Fog node.
-    """
+    """Recover unfinished tasks from an offline Fog node."""
 
     logger.warning(
         "Starting task recovery for failed node %s",
         failed_fog_id,
     )
 
-    # Atomically claim unfinished tasks.
-    tasks = task_registry.claim_tasks_for_recovery(
-        failed_fog_id
-    )
+    tasks = task_registry.claim_tasks_for_recovery(failed_fog_id)
 
     if not tasks:
-        logger.info(
-            "No recoverable tasks found on %s",
-            failed_fog_id,
-        )
+        logger.info("No recoverable tasks found on %s", failed_fog_id)
+
+        detected_at = failure_detected_at.pop(failed_fog_id, None)
+
+        if detected_at is not None:
+            metrics.record_recovery_rto(
+                failed_fog=failed_fog_id,
+                duration_seconds=monotonic() - detected_at,
+            )
         return
 
-    logger.info(
-        "%s task(s) reserved for recovery from %s",
-        len(tasks),
-        failed_fog_id,
-    )
-
-    # Find the best replacement node.
     destination = select_recovery_destination(
         failed_fog_id=failed_fog_id,
         nodes=node_registry.get_all_nodes(),
     )
 
     if destination is None:
-        logger.error(
-            "No available replacement Fog node for %s",
-            failed_fog_id,
-        )
+        logger.error("No available replacement Fog node for %s", failed_fog_id)
 
         for task in tasks:
-            task_registry.release_recovery_claim(
-                task["task_id"]
-            )
-
+            task_registry.release_recovery_claim(task["task_id"])
         return
 
     destination_fog_id = destination["fog_id"]
-
-    logger.info(
-        "Recovery destination selected: %s",
-        destination_fog_id,
-    )
     destination_url = FOG_NODE_URLS.get(destination_fog_id)
 
     if destination_url is None:
@@ -200,58 +233,57 @@ async def recover_tasks_from_failed_node(failed_fog_id: str):
         )
 
         for task in tasks:
-            task_registry.release_recovery_claim(
-                task["task_id"]
-            )
-
+            task_registry.release_recovery_claim(task["task_id"])
         return
+
+    recovered_count = 0
 
     async with httpx.AsyncClient(timeout=5.0) as client:
         for task in tasks:
             task_id = task["task_id"]
 
             try:
-                task_data = task["task"]
-
                 response = await client.post(
                     f"{destination_url}/tasks/receive",
-                    json=task_data,
+                    json=task["task"],
                 )
-
                 response.raise_for_status()
 
-                # Update the registry after successful dispatch.
                 with pending_events_lock:
                     updated = task_registry.update_destination(
                         task_id,
                         destination_fog_id,
                     )
 
-                    if updated:
-                        # Apply an MQTT event received during recovery.
-                        pending_event = pending_task_events.pop(
-                            task_id,
-                            None,
-                        )
-
-                        if pending_event:
-                            task_registry.update_task_status(
-                                task_id,
-                                pending_event["status"],
-                                destination_fog=pending_event.get("destination_fog"),
-                            )
-
-                if not updated:
-                    logger.error(
-                        "Could not update registry for recovered task %s",
+                    pending_event = pending_task_events.pop(
                         task_id,
+                        None,
                     )
 
+                    if updated and pending_event:
+                        task_registry.update_task_status(
+                            task_id,
+                            pending_event["status"],
+                            destination_fog=pending_event.get(
+                                "destination_fog"
+                            ),
+                        )
+                        record_task_metrics(pending_event)
+
+                if not updated:
                     task_registry.release_recovery_claim(task_id)
                     continue
 
+                recovered_count += 1
+
+                metrics.record_migration(
+                    source=failed_fog_id,
+                    destination=destination_fog_id,
+                    kind="RECOVERY",
+                )
+
                 logger.info(
-                    "Task %s successfully sent to %s",
+                    "Task %s successfully recovered on %s",
                     task_id,
                     destination_fog_id,
                 )
@@ -262,10 +294,17 @@ async def recover_tasks_from_failed_node(failed_fog_id: str):
                     task_id,
                     exc,
                 )
+                task_registry.release_recovery_claim(task_id)
 
-                task_registry.release_recovery_claim(
-                    task_id
-                )
+    if recovered_count == len(tasks):
+        detected_at = failure_detected_at.pop(failed_fog_id, None)
+
+        if detected_at is not None:
+            metrics.record_recovery_rto(
+                failed_fog=failed_fog_id,
+                duration_seconds=monotonic() - detected_at,
+            )
+
 
 async def monitor_nodes():
     """Detect offline Fog nodes and retry task recovery periodically."""
@@ -275,6 +314,11 @@ async def monitor_nodes():
 
         for fog_id in offline_nodes:
             logger.warning("Fog node %s is OFFLINE", fog_id)
+
+            failure_detected_at.setdefault(
+                fog_id,
+                monotonic(),
+            )
 
         now = monotonic()
 
@@ -312,7 +356,7 @@ async def lifespan(app: FastAPI):
 
     mqtt_client.subscribe(
         "fog/+/status",
-        node_registry.update_node,
+        handle_node_status,
     )
 
     mqtt_client.subscribe(
@@ -356,6 +400,25 @@ async def health():
         "service": "central-scheduler",
         "status": "running",
     }
+
+@app.get("/metrics")
+async def get_prometheus_metrics():
+    return Response(
+        content=metrics.prometheus_data(),
+        media_type=metrics.prometheus_content_type,
+    )
+
+
+@app.get("/metrics/export.csv")
+async def export_metrics_csv():
+    path = metrics.export_csv()
+    return Response(
+        content=Path(path).read_text(encoding="utf-8"),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": 'attachment; filename="metrics.csv"'
+        },
+    )
 
 
 # --------------------------------------------------
@@ -517,8 +580,11 @@ async def schedule_task(task: dict):
 # Task dispatching
 # --------------------------------------------------
 
+
 async def dispatch_task(request: DispatchRequest):
     """Schedule, dispatch and register a task."""
+
+    dispatch_started = monotonic()
 
     source_fog_id = request.source_fog_id
     task = request.task
@@ -543,7 +609,6 @@ async def dispatch_task(request: DispatchRequest):
             detail=f"Unknown source Fog node {source_fog_id}",
         )
 
-    # Preserve the original source of the task.
     task.source_fog = source_fog_id
 
     destination = select_destination(
@@ -575,47 +640,26 @@ async def dispatch_task(request: DispatchRequest):
                 f"{destination_url}{endpoint}",
                 json=task.model_dump(mode="json"),
             )
-
             response.raise_for_status()
 
     except httpx.TimeoutException:
-        logger.error(
-            "Dispatch timeout for task %s to %s",
-            task.task_id,
-            destination_fog_id,
-        )
-
         raise HTTPException(
             status_code=504,
             detail="Destination Fog node did not respond in time",
         )
 
     except httpx.HTTPStatusError as exc:
-        logger.error(
-            "Dispatch rejected for task %s: %s",
-            task.task_id,
-            exc.response.text,
-        )
-
         raise HTTPException(
             status_code=exc.response.status_code,
             detail=f"Destination rejected task: {exc.response.text}",
         )
 
-    except httpx.RequestError as exc:
-        logger.error(
-            "Cannot reach destination %s: %s",
-            destination_fog_id,
-            str(exc),
-        )
-
+    except httpx.RequestError:
         raise HTTPException(
             status_code=503,
             detail=f"Cannot reach Fog node {destination_fog_id}",
         )
 
-    # Register the task and process any event that arrived
-    # before the registration was completed.
     with pending_events_lock:
         task_registry.register_task(
             task=task.model_dump(mode="json"),
@@ -623,10 +667,7 @@ async def dispatch_task(request: DispatchRequest):
             destination_fog=destination_fog_id,
         )
 
-        pending_event = pending_task_events.pop(
-            task.task_id,
-            None,
-        )
+        pending_event = pending_task_events.pop(task.task_id, None)
 
         if pending_event is not None:
             task_registry.update_task_status(
@@ -634,12 +675,18 @@ async def dispatch_task(request: DispatchRequest):
                 pending_event["status"],
                 destination_fog=pending_event.get("destination_fog"),
             )
+            record_task_metrics(pending_event)
 
-            logger.info(
-                "Pending event applied to task %s: %s",
-                task.task_id,
-                pending_event["status"],
-            )
+    metrics.record_dispatch(
+        (monotonic() - dispatch_started) * 1000
+    )
+
+    if destination_fog_id != source_fog_id:
+        metrics.record_migration(
+            source=source_fog_id,
+            destination=destination_fog_id,
+            kind="SCHEDULING",
+        )
 
     logger.info(
         "Task %s dispatched from %s to %s (%s)",
