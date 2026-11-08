@@ -186,3 +186,87 @@ async def test_recovery_releases_claim_when_destination_returns_500(
 
     assert len(retry_claimed) == 1
     assert retry_claimed[0]["task_id"] == "task-202"
+
+@pytest.mark.asyncio
+async def test_mixed_recovery_continues_after_individual_failures(
+    monkeypatch,
+):
+    registry = TaskRegistry()
+
+    for task_id in ("task-301", "task-302", "task-303"):
+        registry.register_task(
+            create_task(task_id),
+            "fog-a",
+            "fog-b",
+        )
+
+    monkeypatch.setattr(
+        scheduler_main,
+        "task_registry",
+        registry,
+    )
+
+    monkeypatch.setattr(
+        scheduler_main,
+        "select_recovery_destination",
+        lambda failed_fog_id, nodes: {"fog_id": "fog-c"},
+    )
+
+    monkeypatch.setattr(
+        scheduler_main,
+        "FOG_NODE_URLS",
+        {"fog-c": "http://127.0.0.1:8003"},
+    )
+
+    class MixedAsyncClient:
+        def __init__(self, *args, **kwargs):
+            self.call_count = 0
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def post(self, *args, **kwargs):
+            self.call_count += 1
+
+            if self.call_count == 1:
+                request = httpx.Request("POST", args[0])
+                return httpx.Response(200, request=request)
+
+            if self.call_count == 2:
+                request = httpx.Request("POST", args[0])
+                return httpx.Response(500, request=request)
+
+            raise httpx.ConnectError("Fog C unavailable")
+
+    monkeypatch.setattr(
+        scheduler_main.httpx,
+        "AsyncClient",
+        MixedAsyncClient,
+    )
+
+    await scheduler_main.recover_tasks_from_failed_node("fog-b")
+
+    task_301 = registry.get_task("task-301")
+    task_302 = registry.get_task("task-302")
+    task_303 = registry.get_task("task-303")
+
+    # First task succeeds.
+    assert task_301["status"] == "RECOVERED"
+    assert task_301["destination_fog"] == "fog-c"
+
+    # Second and third tasks fail and become retryable.
+    assert task_302["status"] == "PENDING"
+    assert task_302["destination_fog"] == "fog-b"
+
+    assert task_303["status"] == "PENDING"
+    assert task_303["destination_fog"] == "fog-b"
+
+    retry_claimed = registry.claim_tasks_for_recovery("fog-b")
+
+    assert len(retry_claimed) == 2
+    assert {
+        task["task_id"] for task in retry_claimed
+    } == {"task-302", "task-303"}
