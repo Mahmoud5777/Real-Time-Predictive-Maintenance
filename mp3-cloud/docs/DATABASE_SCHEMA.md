@@ -2,7 +2,9 @@
 
 MP3 conserve les donnees recues des Fog. Les decisions d'ordonnancement, de transfert
 et de reprise sont prises par MP2. Le schema contient neuf tables metier ;
-`alembic_version` est une dixieme table technique de suivi des migrations.
+Deux tables techniques completent les neuf tables metier : alembic_version (migrations)
+et ingest_receipts (preuves de deduplication des mesures/predictions apres retention),
+soit onze tables visibles dans PostgreSQL depuis la migration 0004.
 
 ## Relations a comprendre
 
@@ -33,7 +35,9 @@ Un KPI peut combiner plusieurs tables et n'est donc pas rattache a une seule lig
 - Cle primaire `fog_id` : FOG_A, FOG_B ou FOG_C ; `zone` correspond a A, B ou C.
 - `status`, `cpu_percent`, `ram_percent`, `queued_tasks`, `active_tasks` : dernier etat connu.
 - `last_heartbeat` : date du producteur ; `last_received_at` : reception de cette observation.
-- `offline_since`, `recovered_at` : dates de supervision, a alimenter lors de l'ingestion.
+- `offline_since`, `recovered_at` : dates de changement rapporte par MP2, alimentees lors de l'ingestion.
+- `supervision_status`, `supervision_reason`, `supervision_since`, `supervision_checked_at` :
+  decisions distinctes du superviseur Cloud (migration 0003_fog_supervision).
 - `environment_ref`, `endpoint` : references facultatives de l'environnement reel MP2.
 - `registered_at` : date d'inscription au catalogue, distincte d'un heartbeat.
 
@@ -80,11 +84,14 @@ necessaire lorsqu'une tache est partagee. `model_version` comporte 1 a 64 caract
 La base refuse les dates d'acquittement / resolution anterieures a l'alerte et une
 resolution anterieure a un acquittement connu. Le service de gestion viendra dans l'etape API.
 
-### 6. fog_status_history - historique de charge
+### 6. fog_status_history - observations MP2 et decisions Cloud
 
 - `id`, `message_id` unique, references `fog_id` / `zone`.
-- `observed_at` = `last_heartbeat` du message ; `received_at` = reception Cloud.
-- `status`, `cpu_percent`, `ram_percent`, `queued_tasks`, `active_tasks`.
+- `record_type=HEARTBEAT` : observed_at = last_heartbeat producteur, received_at = reception,
+  status / cpu_percent / ram_percent / queued_tasks / active_tasks obligatoires.
+- `record_type=SUPERVISION` : observed_at et received_at Cloud, statut/charges MP2 NULL,
+  supervision_status / previous_supervision_status / supervision_reason, preuves temporelles,
+  timeout_seconds et dates gap_start/gap_end pour les lacunes de couverture.
 
 Chaque observation reste stockee lorsque `fog_nodes` change. Cette histoire permet de
 comparer les charges et files d'attente avant / apres un transfert. CPU et RAM sont
@@ -219,4 +226,11 @@ ORDER BY task_id, occurred_at NULLS LAST, received_at, id;
 L'etape 2 cree le schema et le catalogue. L'etape 3 realise le service d'ecriture HTTP
 et les projections automatiques : voir [HTTP_INGESTION.md](HTTP_INGESTION.md).
 L'etape 4 branche le worker MQTT sur ce meme service : voir [MQTT_INGESTION.md](MQTT_INGESTION.md).
-La supervision temporelle et les KPI restent les etapes suivantes.
+L'etape 6 calcule les KPI dans kpi_records : voir [KPI_FORMULAS.md](KPI_FORMULAS.md).
+La migration 0002_kpi_scope elargit scope_value a 64 caracteres et indexe les receptions
+de taches et les resolutions critiques. Elle conserve les neuf tables metier.
+La supervision temporelle est realisee a l'etape 7 : voir [FOG_SUPERVISION.md](FOG_SUPERVISION.md).
+La migration 0003_fog_supervision reutilise les tables, avec separation des sources par CHECK.
+La retention des mesures/predictions est realisee a l'etape 8 : voir [RETENTION.md](RETENTION.md).
+Le registre technique ingest_receipts conserve kind/message_id et empreinte binaire.
+Alertes, taches et preuves de supervision restent conservees ; simulation active par defaut.

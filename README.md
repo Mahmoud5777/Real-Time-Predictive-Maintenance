@@ -58,6 +58,7 @@ python -m pytest                  # tests unitaires + contrat HTTP
 python -m pytest --postgres       # migrations + integrite dans une base jetable distincte
 python -m pytest --mqtt           # inclut PostgreSQL et un broker MQTT jetable
 python scripts/check_contract.py  # fixtures valides acceptees, invalides rejetees
+python -m scripts.export_openapi --check  # lectures alignees avec le contrat publie
 python scripts/seed.py --scenario degradation --zone A --duration 60 --dump
 ```
 
@@ -71,7 +72,17 @@ Le schema et les commandes de l'etape 2 sont dans
 Les entrees HTTP et MQTT sont realisees : voir
 [HTTP_INGESTION.md](mp3-cloud/docs/HTTP_INGESTION.md) et
 [MQTT_INGESTION.md](mp3-cloud/docs/MQTT_INGESTION.md). L'etape 4 est verifiee avec 149 tests.
-L'etape suivante complete les API de lecture pour le dashboard.
+L'etape 5 complete les lectures du dashboard : voir
+[READ_API.md](mp3-cloud/docs/READ_API.md) pour les 13 routes, les filtres et les exemples.
+L'etape 6 ajoute quatre lectures analytics et un worker d'agregation horaire : voir
+[KPI_FORMULAS.md](mp3-cloud/docs/KPI_FORMULAS.md) pour les formules, les valeurs
+indisponibles et les commandes Docker. Les metriques du worker sont sur le port 8002.
+L'etape 7 ajoute la supervision persistante des heartbeats : voir
+[FOG_SUPERVISION.md](mp3-cloud/docs/FOG_SUPERVISION.md). Les decisions Cloud restent
+distinctes des statuts MP2 ; le worker expose ses metriques sur le port 8003.
+L'etape 8 ajoute la retention par lots des mesures/predictions, avec agregats et preuves
+de deduplication conserves : [RETENTION.md](mp3-cloud/docs/RETENTION.md). Simulation
+active par defaut ; metriques sur 8004. Il reste neuf tables metier, plus deux techniques.
 
 ## Regles internes
 

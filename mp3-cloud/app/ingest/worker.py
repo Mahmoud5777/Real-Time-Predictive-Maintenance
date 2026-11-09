@@ -138,6 +138,7 @@ class MqttWorker:
         self._subscribe_mid = None
         self._need_connect = True
         self._pressure = False
+        self._read_activity = False
         self._loop = None
         self._available = asyncio.Event()
         self.connected = threading.Event()
@@ -203,6 +204,7 @@ class MqttWorker:
                 time.monotonic(),
                 "PAYLOAD_TOO_LARGE" if oversized else None,
             )
+            self._read_activity = True
             self.metrics.received.labels(str(message.qos)).inc()
             self.metrics.last_received.set(time.time())
             try:
@@ -218,6 +220,7 @@ class MqttWorker:
 
     def _network_step(self) -> int:
         with self._lock:
+            self._read_activity = False
             if self._pending is not None and not self._queue.full():
                 self._queue.put_nowait(self._pending)
                 self._pending = None
@@ -231,7 +234,8 @@ class MqttWorker:
                 result = self.client.loop_write()
                 return result if result else self.client.loop_misc()
             self._pressure = False
-            return self.client.loop(timeout=0.1)
+            # Ne jamais attendre sur le socket en tenant le verrou utilise par ACK.
+            return self.client.loop(timeout=0.0)
 
     def _connect(self) -> None:
         with self._lock:
@@ -263,7 +267,11 @@ class MqttWorker:
                     raise OSError("MQTT network unavailable")
                 if self.connected.is_set():
                     delay = self.settings.mqtt_retry_seconds
-                await self._pause(stop, 0.02)
+                # La lecture non bloquante libere rapidement le verrou des ACK.
+                # Aucun delai par message actif ; eviter le busy-loop a vide ou
+                # lorsque l'intake est suspendue par la file bornee.
+                if self._pressure or not self._read_activity:
+                    await self._pause(stop, 0.02)
             except OSError as exc:
                 with self._lock:
                     self.connected.clear()
@@ -290,11 +298,12 @@ class MqttWorker:
                             SELECT count(*) FROM information_schema.tables
                             WHERE table_schema = 'public' AND table_name IN (
                                 'machines', 'fog_nodes', 'sensor_data', 'predictions', 'alerts',
-                                'fog_status_history', 'tasks', 'task_events', 'kpi_records'
+                                'fog_status_history', 'tasks', 'task_events', 'kpi_records',
+                                'ingest_receipts'
                             )
                         """)
                         )
-                        if not revision or tables != 9 or fogs != 3 or machines != 12:
+                        if not revision or tables != 10 or fogs != 3 or machines != 12:
                             raise OSError("schema or catalogue not ready")
                 self.database_ready.set()
                 self._refresh_ready()

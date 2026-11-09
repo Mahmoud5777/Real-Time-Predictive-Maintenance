@@ -156,7 +156,7 @@ async def _table_names(database) -> set[str]:
 def test_migration_replay_and_round_trip(postgres_database):
     config = postgres_database.alembic_config()
     expected = set(Base.metadata.tables) | {"alembic_version"}
-    assert len(Base.metadata.tables) == 9
+    assert len(set(Base.metadata.tables) - {"ingest_receipts"}) == 9
     assert asyncio.run(_table_names(postgres_database)) == expected
     command.upgrade(config, "head")
     assert asyncio.run(_table_names(postgres_database)) == expected

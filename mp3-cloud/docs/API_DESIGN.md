@@ -26,15 +26,17 @@ et la reprise MQTT dans [MQTT_INGESTION.md](MQTT_INGESTION.md).
 ## Pourquoi les KPI sont pre-calculés
 
 Un endpoint qui agreege 1 M lignes par requete ne tient pas le critere « query performance »
-et fait souffrir le dashboard. Les jobs periodiques ecrivent dans `kpi_records` ; l API lit une
-petite table indexee. Contrepartie assumée : les KPI ont jusqu'a `KPI_REFRESH_SECONDS` de retard,
-documente dans OpenAPI pour eviter que MP4 affiche « temps reel » la ou c'est quasi-temps reel.
+et fait souffrir le dashboard. Au jalon 6, les jobs periodiques ecriront dans `kpi_records` ;
+l'API lit cette table indexee depuis l'etape 6. Le worker distinct analytics effectue
+un refresh transactionnel periodique des heures terminees. Les formules, perimetres,
+limites et commandes sont dans [KPI_FORMULAS.md](KPI_FORMULAS.md).
 
-## Pourquoi le brut est partitionne et purge
+## Pourquoi le partitionnement et la purge sont prevus
 
 12 machines x 1 Hz = ~1,04 M lignes/jour. Apres 3 jours de demo, une requete d historique scanne
-des millions de lignes. Partition par jour => purge = `DROP PARTITION` (instantane) et requetes
-qui ne touchent que les partitions concernees (partition pruning).
+des millions de lignes. Le jalon de performance devra mesurer le besoin et definir une
+strategie compatible avec l'unicite globale des messages. Les tables actuelles sont indexees
+mais non partitionnees ; aucune purge automatique n'est active.
 
 ## Convention temporelle
 
@@ -43,8 +45,26 @@ Sans cette durete, trois conteneurs a trois fuseaux produisent des KPI silencieu
 
 ## Erreurs normalisees
 
-Toutes les erreurs sortent en RFC 7807 (`type/title/status/detail/instance`). MP4 ecrit un seul
-gestionnaire d erreur au lieu d un par endpoint.
+Les erreurs 404 / 503 des lectures utilisent un Problem au premier niveau
+(`type/title/status/detail/instance`). Les erreurs 422 de parametres conservent le format
+FastAPI avec une liste `detail`. Les erreurs de l'ingestion gardent leur contrat existant.
+Ces distinctions sont explicites dans OpenAPI pour le gestionnaire d'erreurs de MP4.
+
+## Lectures livrees a l'etape 5
+
+La pagination reste limit/offset (50 par defaut, maximum 1000) et les tris sont limites aux
+champs annonces, avec departage par cle primaire. Les filtres temporels sont inclusifs et UTC.
+Les zones de machines et Fog executants sont distinctes ; les taches gardent leur origine.
+Un vieux heartbeat est indique par heartbeat_stale sans fabriquer une panne persistante.
+Le guide [READ_API.md](READ_API.md) explique les limites de concurrence, les dates inconnues
+et la synchronisation des schemas publies avec FastAPI.
+
+## Lectures analytics de l'etape 6
+
+Les lectures analytics utilisent des bornes horaires UTC [from, to), avec to exclusif,
+contrairement aux filtres inclusifs d'observations brutes. Elles consultent le cache,
+sans lancer de calcul dans une requete HTTP. Les heures et effectifs restent distincts.
+La comparaison de modeles porte sur des distributions observees, sans labels de precision.
 
 ## Ce que je refuse volontairement
 

@@ -36,10 +36,16 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "--mqtt", action="store_true",
         help="Tests MQTT avec broker Docker et PostgreSQL jetables (implique --postgres).",
     )
+    parser.addoption(
+        "--performance", action="store_true",
+        help="Autoriser les mesures longues de performance (utiliser avec --mqtt).",
+    )
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     for item in items:
+        if "performance" in item.keywords and not config.getoption("--performance"):
+            item.add_marker(pytest.mark.skip(reason="Mesures longues : ajouter --performance."))
         if "postgres" in item.keywords and not (
             config.getoption("--postgres") or config.getoption("--mqtt")
         ):

@@ -283,4 +283,190 @@ La persistance du broker depend de ses sauvegardes ; les producteurs doivent con
 leurs messages quand le broker est inaccessible. Les rejets ont des logs et compteurs,
 sans quarantaine durable. Le timeout des heartbeats et les KPI ne sont pas implementes ici.
 
-Prochaine etape : **5, completer les API de lecture utiles au dashboard**.
+L'etape suivante a ce jalon etait 5, realisee ci-dessous.
+
+## Etape 5 - lectures utiles au dashboard
+
+Statut : **realisee et verifiee le 7 novembre 2026**. 247 tests reussis avec --mqtt,
+Ruff valide, 11 fixtures conformes et contrat OpenAPI 3.0.3 valide et synchronise.
+Les 149 tests precedents sont conserves ; 98 controles de lecture sont ajoutes.
+Le guide de reference est [READ_API.md](docs/READ_API.md).
+
+- [x] 5.1 : schemas de reponse explicites et conservation des valeurs inconnues NULL.
+- [x] 5.2 : catalogue / derniere mesure et historique des mesures, departage des dates egales.
+- [x] 5.3 : predictions par machine / zone / executant / modele / anomalie / periode.
+- [x] 5.4 : alertes, filtres de cycle de vie et detail par alert_id.
+- [x] 5.5 : etats Fog, age / staleness du heartbeat et historique des observations de charge.
+- [x] 5.6 : projections des taches et journal, origine distincte de l'affectation, dates inconnues explicites.
+- [x] 5.7 : huit collections paginees, limites 1-1000, tri autorise et erreurs 404 / 422 / 503 documentees.
+- [x] 5.8 : lectures publiques conformes au code existant, ingestion protegee et Swagger Authorize.
+- [x] 5.9 : contrat exportable / verifiable ; operations futures marquees planned.
+- [x] 5.10 : tests PostgreSQL des filtres, pages, NULL, chronologies et ingestion HTTP lue depuis une autre connexion.
+- [x] 5.11 : image API Python 3.12 construite, 13 lectures verifiees par HTTP et Swagger accessible.
+
+Les lectures ne creent aucune observation ni transition persistante de panne. Les tests
+utilisent des catalogues et observations synthetiques dans des bases / brokers jetables.
+L'offset et le total restent soumis a l'ingestion concurrente ; aucune garantie de snapshot
+multi-page n'est annoncee. Les schemas entrants et la revision Alembic restent inchanges.
+
+L'etape 6 est realisee ci-dessous. L'acquittement d'alertes reste le jalon B4 ; la supervision
+persistante des heartbeats, la retention et le partitionnement restent a venir.
+
+## Etape 6 - KPI et agregats horaires
+
+Statut : **realisee et verifiee le 7 novembre 2026**. 316 tests reussis avec --mqtt,
+dont les 247 precedents et 69 controles analytics. Ruff, 11 fixtures, contrat OpenAPI
+3.0.3 et Compose valides. Guide : [KPI_FORMULAS.md](docs/KPI_FORMULAS.md).
+
+- [x] 6.1 : catalogue de 21 indicateurs observables, unites et dates source explicites.
+- [x] 6.2 : sept indicateurs sans preuves exposes comme indisponibles, jamais comme zero.
+- [x] 6.3 : heures UTC terminees [start, end), SQL GROUPING SETS et dimensions connues.
+- [x] 6.4 : cache transactionnel dans kpi_records, idempotence, verrou et snapshot commun.
+- [x] 6.5 : lookback borne, donnees tardives, refus de refresh hors retention et cache preserve.
+- [x] 6.6 : migration 0002_kpi_scope sans nouvelle table, model_version jusqu'a 64 caracteres,
+  index des receptions de taches et resolutions critiques, downgrade sans troncature.
+- [x] 6.7 : quatre lectures paginees avec sample_size, quality, fraicheur et erreurs sures.
+- [x] 6.8 : classement sur une heure, distributions par modele et heure sans precision inventee.
+- [x] 6.9 : worker distinct, timeout, retries bornes, rollback sur erreur/arret et metriques 8002.
+- [x] 6.10 : CLI une heure/periode explicite, contrat exporte et guide d'exploitation.
+- [x] 6.11 : tests PostgreSQL numeriques, NULL, bornes, concurrence, rollback et migration.
+- [x] 6.12 : images Docker Python 3.12 construites, quatre GET verifies HTTP, worker healthy.
+
+Le demarrage Docker a montre l'attente du schema puis un refresh confirme : ready=1.
+La base de travail garde 12 machines, 3 Fog et aucune observation synthetique. Un cache
+vide est donc attendu et ne prouve pas la disponibilite des trois Fog reels.
+La purge, le dimensionnement sous charge reelle et les preuves de gain restent a venir.
+La supervision persistante des heartbeats est realisee ci-dessous.
+
+## Etape 7 - supervision persistante des heartbeats
+
+Statut : **realisee et verifiee le 7 novembre 2026**. 364 tests reussis avec --mqtt,
+dont les 316 precedents et 48 controles supplementaires. Ruff, 11 fixtures,
+OpenAPI 3.0.3 et Compose valides. Guide : [FOG_SUPERVISION.md](docs/FOG_SUPERVISION.md).
+
+- [x] 7.1 : etats Cloud UNKNOWN / REACHABLE / UNREACHABLE distincts du statut rapporte.
+- [x] 7.2 : dates producteur et reception fraiches, anciens messages et doublons sans fausse reprise.
+- [x] 7.3 : horloges futures inconnues, correction fraiche possible, dates retrogrades protegees.
+- [x] 7.4 : transitions, preuves et lacunes MONITOR_GAP conservees dans fog_status_history.
+- [x] 7.5 : migration 0003 avec neuf tables, sources distinguees par CHECK et downgrade sans perte.
+- [x] 7.6 : transaction, verrous communs a l'ingestion, timeout, rollback et idempotence concurrente.
+- [x] 7.7 : journal public pagine, filtres / periodes, fraicheur et etat effectif des lectures.
+- [x] 7.8 : worker distinct, retries / arret partages avec analytics, metriques et healthcheck 8003.
+- [x] 7.9 : tests PostgreSQL de pertes, reprises, concurrence, panne transactionnelle et schema HTTP.
+- [x] 7.10 : images Python 3.12 construites ; supervision, analytics et ingestion healthy.
+
+La base conserve 12 machines et trois Fog UNKNOWN sans heartbeat, sans observation
+synthetique ni transition de panne inventee. Une verification UNKNOWN est confirmee
+periodiquement ; les donnees producteurs ne sont pas simulees. Une perte courte entre
+scans peut echapper au journal. La disponibilite reelle reste un indicateur indisponible.
+La retention est realisee ci-dessous, avec preservation de la deduplication,
+des alertes a resoudre et des preuves utiles aux KPI / chronologies.
+
+## Etape 8 - retention des mesures et predictions
+
+Statut : **realisee et verifiee le 7 novembre 2026**. 385 tests reussis avec --mqtt,
+dont les 364 precedents et 21 controles de retention ; puis 27 controles PostgreSQL
+apres la protection finale du cache. Ruff, 11 fixtures, OpenAPI et Compose valides.
+Guide : [RETENTION.md](docs/RETENTION.md).
+
+- [x] 8.1 : seuil RAW_RETENTION_DAYS, heures entierement expirees et lots bornes.
+- [x] 8.2 : simulation par defaut, CLI review/apply et activation periodique configurable.
+- [x] 8.3 : registre compact technique ingest_receipts, neuf tables metier toujours presentes.
+- [x] 8.4 : empreintes semantiques sans arrondi, reservation transactionnelle et ancien brut equipe avant purge.
+- [x] 8.5 : doublons/conflits apres suppression, nouveaux identifiants d'heures closes refuses.
+- [x] 8.6 : quinze agregrats de mesures/predictions finalises avant suppression ; marque interne non exposee.
+- [x] 8.7 : cache preserve sur lots multiples, refresh d'heure finalisee refuse et dernier capteur conserve.
+- [x] 8.8 : alertes, taches, historique Fog et preuves de supervision conserves.
+- [x] 8.9 : barriere partagee d'ingestion, cycle exclusif non bloquant, timeout/rollback et reprise.
+- [x] 8.10 : migration 0004 avec refus de downgrade perdant la deduplication ; tests de concurrence/purge.
+- [x] 8.11 : images Python 3.12 construites, retention et autres workers healthy, metriques 8004.
+
+La base de travail conserve ses catalogues sans observation synthetique. Retention
+est active en simulation (candidats=0, suppression=0), avec onze tables PostgreSQL :
+neuf metier et deux techniques. Le registre de clefs et les historiques conserves
+croissent encore ; aucun partitionnement ni restauration de backup n'est annonce.
+Prochaine etape : **mesurer performances et contention**, puis definir les optimisations
+ou le partitionnement compatibles avec les garanties de deduplication et le cache.
+
+## Etape 9 - baseline A/B/C, performance et contention Fog
+
+Statut : **baseline realisee et correction ciblee verifiee le 7 novembre 2026**.
+388 tests reussis avec --mqtt ; trois scenarios longs ignores par defaut et verifies
+avec --performance. Le scenario mixte est repete apres la correction de verrou.
+Les repetitions de controle ne constituent pas de nouveaux tests distincts.
+Guide et resultats : [PERFORMANCE.md](docs/PERFORMANCE.md).
+
+- [x] 9.1 : abonnements + documentes pour A/B/C, catalogue de douze machines et topic commun tasks/events.
+- [x] 9.2 : parcours trois zones MQTT->commit->API, transferts A->B->C->A, supervision B et rejeux.
+- [x] 9.3 : HTTP TCP loopback et bases/broker jetables, meme volume pour lots 1/100, warmup explicite.
+- [x] 9.4 : debit, distributions par route, lectures seules/concurrentes, trois clients MQTT et jobs.
+- [x] 9.5 : purge isolee de 264 observations, KPI conserves et deduplication apres suppression.
+- [x] 9.6 : rapports JSON locaux ignores par Git, effectifs/conditions/limites et plan EXPLAIN conserves.
+- [x] 9.7 : contention FOR UPDATE/FK reproduite par test ; FOR NO KEY UPDATE commun aux etats Fog.
+- [x] 9.8 : progression scan/heartbeat avec prediction non commitee et serialisation des mises a jour.
+- [x] 9.9 : comparaison avant/apres, Ruff/OpenAPI/fixtures/Compose valides, documentation verifiee.
+- [x] 9.10 : cinq images Python 3.12 reconstruites, quatre workers healthy/ready=1 et API accessible.
+
+HTTP unitaire : 44,2 messages/s ; lots de 100 : 109,2 messages/s sur 2400 mesures.
+Maximum de scan Fog observe : 6881,7 -> 251,0 ms apres correction, avec deux essais
+locaux distincts. Le p95 combine des lectures sous charge reste environ 234 ms,
+et la latence MQTT en rafale depasse la cible. Le gain de supervision ne prouve
+pas une amelioration generale de debit ou de lecture.
+
+La base fog_cloud conserve seulement les 12 machines et trois Fog, sans observation
+synthetique ; retention reste en simulation. Les ressources de test sont supprimees.
+Les modifications restent locales, non commitees/non poussees.
+
+T12 reste partiellement realise : aucun partitionnement ni dimensionnement sur
+plusieurs jours. La prochaine mesure doit separer les processus du generateur/API,
+utiliser une charge cadensee et profiler reseau/driver/SQL/verrous avant d'optimiser
+les lectures ou l'ingestion. Ensuite, preparer CI et livraison pour MP2/MP4 ; la
+demonstration des trois environnements Fog reels reste a valider avec MP2.
+
+## Etape 10 - laboratoire cadense et essais autonomes
+
+Statut : **realisee et verifiee le 8 novembre 2026**. Suite complete --mqtt :
+399 tests reussis, trois anciens benchmarks longs ignores par defaut ; puis 37
+controles MQTT/laboratoire reussis apres le dernier garde-fou de ports. Les
+repetitions ne sont pas de nouveaux tests distincts. Ruff, 11 fixtures, OpenAPI
+et les deux configurations Compose valides. Tutoriel : [LAB_ETAPE10.md](docs/LAB_ETAPE10.md).
+
+- [x] 10.1 : base fog_lab, volumes/projet Compose dedies et ports loopback 8100/1884.
+- [x] 10.2 : generateur Windows distinct des cinq processus backend Docker.
+- [x] 10.3 : 12 machines A/B/C a cadence fixe, predictions, heartbeats, alertes et taches.
+- [x] 10.4 : six GET concurrents par refresh ; retards et echeances manquees conserves.
+- [x] 10.5 : comptages SQL par run, doublons HTTP, delai de vidage borne et rapports incomplets.
+- [x] 10.6 : p95/p99 selon effectifs ; p95 MQTT en intervalle de bucket, horloges distinguees.
+- [x] 10.7 : historique de preparation, KPI/supervision/retention aux intervalles normaux.
+- [x] 10.8 : plafond reseau observe a 5 Hz ; poll non bloquant et pause a vide/saturation.
+- [x] 10.9 : ACK apres commit, file bornee et reprise conserves ; regression MQTT verifiee.
+- [x] 10.10 : CLI start/run/status/logs/sql/stop ; namespace, proprietaire et ports controles.
+- [x] 10.11 : commandes et exercices documentes, stop/start verifies sans toucher fog_cloud.
+- [x] 10.12 : commande debutant 60 s/1 Hz verifiee apres les garde-fous : 840 messages, cadence valide.
+- [x] 10.13 : chevauchement de deux runs utilisateurs identifie par rapports et SQL ; verrou OS
+  interprocessus pour start/run/stop, lectures autorisees et liberation apres crash.
+- [x] 10.14 : pause de vidage avant baseline, reset/surplus de confirmations et histogramme
+  contamine refuses ; interruption et raison d'echec conservees dans le rapport.
+
+Correction du chevauchement : 44 controles MQTT/laboratoire reussis et Ruff valide.
+Les regressions utilisent un vrai second processus, un crash du detenteur et un
+appel CLI bloque avant toute lecture de state.json. Deux essais consecutifs de
+controle (20 s a 1 Hz, 10 s a 5 Hz) confirment respectivement 288 et 630 messages
+en SQL. Les donnees utilisateur sont conservees ; les controles ajoutent leurs
+propres observations, identifiables par run_id. Pas de modification du worker metier.
+
+Essai corrige de 120 s a 5 Hz : 7428/7428 messages confirmes en 120,13 s, cadence
+valide, aucun rejet MQTT ni erreur HTTP. P95 HTTP combine 69,7 ms ; historique M01
+56,9 ms sur 120 lectures ; MQTT moyen 42,7 ms, p95 (75,100] ms sur 7428 messages.
+Deux cycles KPI, 24 scans de supervision, retention un succes/quatre busy sans
+erreur ; les 36 observations expirees sont supprimees. Les essais 5 Hz precedents
+restent marques incomplets. Methode et limites : [PERFORMANCE.md](docs/PERFORMANCE.md).
+
+La base de travail conserve ses catalogues sans observations synthetiques ; sa
+retention reste en simulation. Les cinq images de travail sont reconstruites avec
+la correction MQTT. Le laboratoire est distinct et peut rester actif pour les
+essais personnels. Les changements restent locaux, non commites/non pousses.
+
+T12 reste partiel : pas de partitionnement ni dimensionnement sur plusieurs jours.
+Prochaine etape : reproduire soi-meme le laboratoire, puis preparer CI et lancement
+depuis un clone frais avant la validation des programmes reels MP2/MP4.

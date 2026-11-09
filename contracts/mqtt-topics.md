@@ -9,6 +9,11 @@
 | `tasks/events` | MP2 | MP3 | TaskEvent |
 
 Regles :
+- Les abonnements MP3 utilisent `+` : `fog/+/sensor/+`, `fog/+/predictions`,
+  `fog/+/alerts`, `fog/+/status`. Ils couvrent deja A, B et C ; la validation limite
+  les identifiants aux trois Fog et douze machines du catalogue.
+- Mesures : M01-M04 en A, M05-M08 en B, M09-M12 en C. `tasks/events` est commun
+  aux trois Fog ; source et destination figurent dans le payload.
 - QoS **1** pour predictions/alerts/status/tasks (au moins une fois) => le Cloud deduplique par `message_id`.
 - `retain=true` uniquement pour `fog/{fog_id}/status` : un nouveau consommateur voit etat courant immediatement.
 - Aucun topic ad hoc : ajouter un topic = PR sur `contracts/` + accord MP3.

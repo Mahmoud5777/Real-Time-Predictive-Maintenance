@@ -137,6 +137,29 @@ def test_full_queue_pauses_reading_while_allowing_outgoing_packets():
     instance.client.loop_misc.assert_called_once()
 
 
+@pytest.mark.parametrize("saturated,active,pause", [
+    (False, True, False), (True, False, True), (False, False, True)
+])
+async def test_network_pause_is_reserved_for_idle_or_saturated_intake(saturated, active, pause):
+    instance = make_worker()
+    instance._need_connect = False
+    instance._pressure = saturated
+    instance._read_activity = active
+    instance._pause = AsyncMock()
+    stop = asyncio.Event()
+
+    def poll():
+        stop.set()
+        return mqtt.MQTT_ERR_SUCCESS
+
+    instance._network_step = poll
+    await instance._network(stop)
+    if pause:
+        instance._pause.assert_awaited_once_with(stop, 0.02)
+    else:
+        instance._pause.assert_not_awaited()
+
+
 def test_oversized_payload_does_not_occupy_the_full_buffer():
     instance = make_worker(mqtt_max_payload_bytes=1024)
     incoming = SimpleNamespace(

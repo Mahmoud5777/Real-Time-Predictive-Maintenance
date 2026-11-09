@@ -7,6 +7,23 @@ Les modeles, migrations, regles de deduplication et projections de l'etape 3 son
 
 ## Topics et coherence
 
+Les exemples en zone A ne limitent pas les abonnements. Le worker s'abonne a
+`fog/+/sensor/+`, `fog/+/predictions`, `fog/+/alerts`, `fog/+/status` et `tasks/events`.
+Le caractere `+` remplace un niveau MQTT : A/B/C pour les mesures, FOG_A/B/C pour
+les resultats et heartbeats. La validation n'accepte que les identifiants du catalogue.
+
+Exemples pour les trois zones :
+
+```text
+A : fog/A/sensor/M01 ; fog/FOG_A/predictions ; fog/FOG_A/alerts ; fog/FOG_A/status
+B : fog/B/sensor/M05 ; fog/FOG_B/predictions ; fog/FOG_B/alerts ; fog/FOG_B/status
+C : fog/C/sensor/M09 ; fog/FOG_C/predictions ; fog/FOG_C/alerts ; fog/FOG_C/status
+Commun : tasks/events
+```
+
+Les mesures couvrent M01-M04 en A, M05-M08 en B et M09-M12 en C. Le topic
+`tasks/events` est commun ; source_fog et destination_fog identifient les transferts.
+
 - fog/{zone}/sensor/{machine_id} : la zone et la machine du topic correspondent au payload.
 - fog/{fog_id}/predictions, alerts, status : le fog_id correspond au producteur rapporte.
 - tasks/events : les sources et destinations sont validees par le service commun.
@@ -62,6 +79,9 @@ docker compose up -d db mosquitto
 Le worker verifie la revision Alembic, les neuf tables et les catalogues de trois Fog et
 douze machines avant de se connecter au broker. Il attend si ce socle n'est pas pret.
 Il n'execute pas de migration et ne cree pas de faux heartbeats pour remplir le catalogue.
+Depuis l'etape 8 il attend aussi ingest_receipts, registre technique de deduplication.
+Les mesures/predictions purgees restent dedupliquees ; EXPIRED_WINDOW est un rejet
+definitif pour les nouveaux identifiants d'heures finalisees. Voir [RETENTION.md](RETENTION.md).
 
 Pour un lancement dans Docker, une fois le schema et le catalogue prepares :
 

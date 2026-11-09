@@ -50,6 +50,15 @@ observation valide reste dans l'historique. L'etat courant change seulement si
 enregistree reste courante ; une observation ancienne ne fait pas regresser l'etat.
 Un doublon ne rafraichit pas `last_received_at`.
 
+Depuis l'etape 9, le verrou est FOR NO KEY UPDATE, comme celui du superviseur :
+la serialisation des etats est preservee sans attendre les cles etrangeres de
+predictions/alertes/taches non commitees. Les cles fog_id et zone ne sont pas modifiees.
+
+Depuis l'etape 8, mesures et predictions disposent aussi d'un registre technique
+d'empreintes : leur deduplication survit a la suppression du brut. EXPIRED_WINDOW refuse
+un nouvel identifiant dans une heure deja finalisee. Le guide [RETENTION.md](RETENTION.md)
+detaille la barriere transactionnelle et la politique d'admission.
+
 Une transition OFFLINE explicitement rapportee renseigne `offline_since`. Une observation
 ulterieure active efface cet intervalle courant et renseigne `recovered_at` si une
 observation precedente existait. Le premier heartbeat actif ne transforme pas l'etat
@@ -57,6 +66,10 @@ OFFLINE initial du catalogue en fausse panne/reprise.
 
 Ces dates concernent des observations. Le service ne detecte pas encore automatiquement
 un heartbeat absent et ne calcule pas de disponibilite sur les intervalles sans donnees.
+Depuis l'etape 7, un superviseur distinct conserve ces decisions et lacunes :
+[FOG_SUPERVISION.md](FOG_SUPERVISION.md). Une correction fraiche d'horloge producteur
+peut aussi remplacer une projection courante erronee dans le futur ; les messages
+anciens retardes ne peuvent pas effectuer cette correction.
 
 ## 3.5 - Journal et projection des taches
 

@@ -9,6 +9,7 @@ import sys
 import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -24,9 +25,10 @@ from app.db.catalogue import initialize_catalogue
 from app.db.session import get_session
 from app.ingest import worker as module
 from app.ingest.worker import MqttWorker
-from app.main import app
+from app.main import app, create_app
 from app.models.tables import FogNode, SensorData
 from app.services.ingest import MODEL_BY_KIND
+from app.supervision.service import check_nodes
 
 pytestmark = [pytest.mark.mqtt, pytest.mark.postgres]
 FIXTURES = Path(__file__).resolve().parents[2] / "contracts" / "fixtures" / "valid"
@@ -246,6 +248,124 @@ async def test_all_topics_commit_and_http_replay_is_a_duplicate(mqtt_engine, bro
                 assert latest.json()["temperature"] == messages[0][1]["temperature"]
         finally:
             app.dependency_overrides.pop(get_session, None)
+
+
+async def test_three_fog_topics_collaboration_and_dashboard_reads(mqtt_engine, broker):
+    """Les trois zones traversent MQTT -> commit -> API, avec transferts A/B/C."""
+    at = datetime.now(UTC)
+    messages = []
+    task_ids = {}
+    for index, zone in enumerate("ABC"):
+        fog = f"FOG_{zone}"
+        for number in range(1 + 4 * index, 5 + 4 * index):
+            messages.append(item(
+                "sensor", machine_id=f"M{number:02d}", zone=zone, timestamp=at.isoformat()
+            ))
+        machine = f"M{1 + 4 * index:02d}"
+        messages.extend([
+            item("prediction", machine_id=machine, fog_id=fog, timestamp=at.isoformat()),
+            item("alert", machine_id=machine, fog_id=fog, timestamp=at.isoformat()),
+            item("fog_status", fog_id=fog, zone=zone, last_heartbeat=at.isoformat()),
+        ])
+        task_ids[zone] = str(uuid4())
+        destination = f"FOG_{'ABC'[(index + 1) % 3]}"
+        common = dict(task_id=task_ids[zone], created_at=at.isoformat())
+        messages.extend([
+            item("task_event", **common, source_fog=fog, destination_fog=None,
+                 status="CREATED"),
+            item("task_event", **common, source_fog=fog, destination_fog=destination,
+                 status="MIGRATED"),
+            item("task_event", **common, source_fog=destination, destination_fog=None,
+                 status="COMPLETED", completed_at=(at + timedelta(seconds=1)).isoformat()),
+        ])
+    # Une analyse hors zone conserve la zone A de la machine M01.
+    messages.append(item("prediction", fog_id="FOG_C", timestamp=at.isoformat()))
+    factory = async_sessionmaker(mqtt_engine, expire_on_commit=False)
+    application = create_app()
+
+    async def isolated_session():
+        async with factory() as session:
+            yield session
+
+    application.dependency_overrides[get_session] = isolated_session
+    async with running(mqtt_engine, broker) as (instance, worker_task):
+        await asyncio.to_thread(publish, broker, messages)
+        await eventually(
+            lambda: metric(instance, "acknowledgements_total") == len(messages), worker_task
+        )
+        assert sum(metric(instance, "accepted_total", {"kind": k}) for k in FILES) == len(
+            messages
+        )
+        await check_nodes(factory, options(broker))
+        async with AsyncClient(
+            transport=ASGITransport(app=application), base_url="http://test"
+        ) as client:
+            for index, zone in enumerate("ABC"):
+                fog = f"FOG_{zone}"
+                response = await client.get("/api/v1/measurements", params={"zone": zone})
+                assert response.status_code == 200
+                assert response.json()["meta"]["total"] == 4
+                assert {row["machine_id"] for row in response.json()["items"]} == {
+                    f"M{number:02d}" for number in range(1 + 4 * index, 5 + 4 * index)
+                }
+                alerts = await client.get("/api/v1/alerts", params={"fog_id": fog})
+                assert alerts.status_code == 200 and alerts.json()["meta"]["total"] == 1
+                node = await client.get(f"/api/v1/fog/nodes/{fog}")
+                assert node.status_code == 200
+                assert node.json()["effective_supervision_status"] == "REACHABLE"
+                task = await client.get(f"/api/v1/tasks/{task_ids[zone]}")
+                assert task.status_code == 200
+                assert task.json()["origin_fog_id"] == fog
+                assert task.json()["current_fog_id"] == f"FOG_{'ABC'[(index + 1) % 3]}"
+                assert task.json()["status"] == "COMPLETED"
+                events = await client.get(
+                    "/api/v1/tasks/events", params={"task_id": task_ids[zone]}
+                )
+                assert events.status_code == 200 and events.json()["meta"]["total"] == 3
+            cross_zone = await client.get(
+                "/api/v1/predictions", params={"zone": "A", "fog_id": "FOG_C"}
+            )
+            assert cross_zone.status_code == 200 and cross_zone.json()["meta"]["total"] == 1
+
+            offline = item("fog_status", fog_id="FOG_B", zone="B", status="OFFLINE",
+                           last_heartbeat=datetime.now(UTC).isoformat())
+            await asyncio.to_thread(publish, broker, [offline])
+            await eventually(
+                lambda: metric(instance, "acknowledgements_total") == len(messages) + 1,
+                worker_task,
+            )
+            await check_nodes(factory, options(broker))
+            node = await client.get("/api/v1/fog/nodes/FOG_B")
+            assert node.json()["effective_supervision_status"] == "UNREACHABLE"
+            online = item("fog_status", fog_id="FOG_B", zone="B", status="ONLINE",
+                          last_heartbeat=datetime.now(UTC).isoformat())
+            await asyncio.to_thread(publish, broker, [online])
+            await eventually(
+                lambda: metric(instance, "acknowledgements_total") == len(messages) + 2,
+                worker_task,
+            )
+            await check_nodes(factory, options(broker))
+            node = await client.get("/api/v1/fog/nodes/FOG_B")
+            assert node.json()["effective_supervision_status"] == "REACHABLE"
+            history = await client.get(
+                "/api/v1/fog/supervision-history", params={"fog_id": "FOG_B"}
+            )
+            assert history.status_code == 200
+            assert [row["supervision_status"] for row in history.json()["items"]] == [
+                "REACHABLE", "UNREACHABLE", "REACHABLE"
+            ]
+
+            await asyncio.to_thread(publish, broker, messages)
+            await eventually(
+                lambda: metric(instance, "acknowledgements_total") == 2 * len(messages) + 2,
+                worker_task,
+            )
+            assert sum(metric(instance, "duplicates_total", {"kind": k}) for k in FILES) == len(
+                messages
+            )
+            assert await rows(mqtt_engine, SensorData) == 12
+            events = await client.get("/api/v1/tasks/events")
+            assert events.json()["meta"]["total"] == 9
 
 
 async def test_invalid_messages_do_not_block_the_next_valid_message(mqtt_engine, broker):

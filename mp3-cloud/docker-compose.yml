@@ -63,6 +63,78 @@ services:
       retries: 3
       start_period: 20s
 
+  analytics:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-fog}:${POSTGRES_PASSWORD:-fog}@db:5432/${POSTGRES_DB:-fog_cloud}
+      KPI_METRICS_HOST: 0.0.0.0
+      KPI_METRICS_PORT: 8002
+    ports:
+      - "127.0.0.1:${KPI_METRICS_PORT:-8002}:8002"
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_started
+    command: python -m app.analytics.worker
+    restart: unless-stopped
+    stop_grace_period: 20s
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,time,urllib.request; data=urllib.request.urlopen('http://127.0.0.1:8002/metrics',timeout=2).read().decode(); values=dict(line.split() for line in data.splitlines() if line and not line.startswith('#')); assert float(values['fog_cloud_kpi_ready']) == 1 and time.time()-float(values['fog_cloud_kpi_last_success_timestamp_seconds']) < 3*int(os.getenv('KPI_REFRESH_SECONDS','60'))"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
+  supervision:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-fog}:${POSTGRES_PASSWORD:-fog}@db:5432/${POSTGRES_DB:-fog_cloud}
+      SUPERVISION_METRICS_HOST: 0.0.0.0
+      SUPERVISION_METRICS_PORT: 8003
+    ports:
+      - "127.0.0.1:${SUPERVISION_METRICS_PORT:-8003}:8003"
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_started
+    command: python -m app.supervision.worker
+    restart: unless-stopped
+    stop_grace_period: 20s
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,time,urllib.request; data=urllib.request.urlopen('http://127.0.0.1:8003/metrics',timeout=2).read().decode(); values=dict(line.split() for line in data.splitlines() if line and not line.startswith('#')); assert float(values['fog_cloud_supervision_ready']) == 1 and time.time()-float(values['fog_cloud_supervision_last_success_timestamp_seconds']) < int(os.getenv('SUPERVISION_GAP_SECONDS','30'))"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
+  retention:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-fog}:${POSTGRES_PASSWORD:-fog}@db:5432/${POSTGRES_DB:-fog_cloud}
+      RETENTION_METRICS_HOST: 0.0.0.0
+      RETENTION_METRICS_PORT: 8004
+    ports:
+      - "127.0.0.1:${RETENTION_METRICS_PORT:-8004}:8004"
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_started
+    command: python -m app.retention.worker
+    restart: unless-stopped
+    stop_grace_period: 20s
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,time,urllib.request; data=urllib.request.urlopen('http://127.0.0.1:8004/metrics',timeout=2).read().decode(); values=dict(line.split() for line in data.splitlines() if line and not line.startswith('#')); assert float(values['fog_cloud_retention_ready']) == 1 and time.time()-float(values['fog_cloud_retention_last_success_timestamp_seconds']) < 3*int(os.getenv('RETENTION_INTERVAL_SECONDS','60'))"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
 volumes:
   pgdata:
   mqttdata:

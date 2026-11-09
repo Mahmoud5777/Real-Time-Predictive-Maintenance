@@ -1,6 +1,6 @@
 # MP3 - Industrial Cloud Backend, Data Management and Analytics
 
-Responsable : Member 3 (toi) - Branche de travail actuelle : `codex/mp3-schema`
+Responsable : Member 3 (toi) - Branche de travail actuelle : `mp3-cloud-backend`
 
 ## Mission
 Couche Cloud de la plateforme : collecter les resultats des 3 nœuds Fog, les stocker
@@ -11,7 +11,7 @@ Le dashboard ne touche **ni la base, ni les services Fog** : tout passe par cett
 | Objet | Detail |
 |---|---|
 | Ingestion | Abonnement MQTT (`sensor`, `predictions`, `alerts`, `status`, `tasks/events`) + `POST /api/v1/ingest/batch` de secours |
-| Base | 9 tables : catalogues `machines` / `fog_nodes`, mesures `sensor_data`, `predictions`, `alerts`, etat `tasks`, historiques `task_events` / `fog_status_history`, agregats `kpi_records` |
+| Base | 9 tables metier : catalogues, mesures, predictions, alertes, taches, historiques et KPI ; tables techniques `alembic_version` et `ingest_receipts` |
 | Robustesse | Validation stricte Pydantic, rejet des payloads malformes, **deduplication** par `message_id` |
 | Lecture | Machines, dernieres mesures, predictions, alertes, sante Fog, historique des taches ; pagination + filtres machine/zone/periode + tri |
 | Analytics | Agregrats historiques, KPI usine, comparaison de modeles (`model_version`) |
@@ -138,5 +138,126 @@ de celui de l'API. Ne lancer qu'un worker par `MQTT_CLIENT_ID`. Les tests MQTT u
 des brokers et bases jetables ; aucune fixture n'est publiee dans la base de travail.
 Verification complete : 149 tests reussis le 2 novembre 2026.
 
-La prochaine etape est 5 : completer les API de lecture pour le dashboard. L'ordonnancement
-et l'inference ML restent dans MP2 ; la supervision temporelle des Fog et les KPI sont a venir.
+L'etape 5 est realisee ci-dessous. L'ordonnancement et l'inference ML restent dans MP2.
+
+## Etape 5 - lectures du dashboard
+
+Les 13 routes de lecture couvrent machines, derniere mesure, historique de mesures,
+predictions, alertes et leur detail, etat / historique Fog, taches et leur journal.
+Toutes les collections ont une pagination bornee, des filtres valides et un tri stable.
+Les erreurs de lecture sont documentees, les dates inconnues restent NULL et les vieux
+heartbeats sont marques stale sans modifier le dernier etat rapporte.
+
+Le [guide READ_API.md](docs/READ_API.md) detaille routes, periodes, limites et exemples
+PowerShell. Swagger declare les reponses et l'authentification de l'ingestion. Le contrat
+publie distingue les lectures implementees des operations futures.
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.export_openapi --check
+docker compose up -d --build api
+```
+
+L'etape 6 est realisee ci-dessous.
+La supervision persistante des Fog, la retention et le partitionnement restent a venir.
+
+## Etape 6 - KPI et agregats horaires
+
+Le worker Docker `analytics` calcule 21 indicateurs observables sur des heures UTC
+terminees et les stocke dans kpi_records. Les quatre GET `/analytics/kpis`,
+`/analytics/measurements`, `/analytics/model-comparison`, `/analytics/risk-ranking`
+consultent ce cache avec pagination, unites, effectifs et fraicheur. Les indicateurs
+sans preuves (precision ML, disponibilite, temps de reprise) restent indisponibles.
+
+Le [guide KPI_FORMULAS.md](docs/KPI_FORMULAS.md) donne formules, perimetres, limites,
+configuration, refresh manuel et reprise. La migration 0002_kpi_scope conserve les
+neuf tables metier et permet des versions de modele de 64 caracteres.
+
+```powershell
+docker compose up -d --build api analytics
+docker compose logs --tail 30 analytics
+Invoke-RestMethod http://127.0.0.1:8000/api/v1/analytics/kpis
+```
+
+Les metriques du worker sont sur http://127.0.0.1:8002/metrics. Sans observations,
+les reponses restent vides avec une explication ; aucun chiffre de demonstration
+n'est ajoute a la base de travail. Les etapes suivantes sont la supervision persistante,
+la retention et les controles de performance. La supervision est realisee ci-dessous.
+
+## Etape 7 - supervision persistante des Fog
+
+Le worker Docker `supervision` verifie la fraicheur des heartbeats et conserve pertes,
+reprises et lacunes de couverture. Le statut MP2 reste distinct de la joignabilite
+Cloud UNKNOWN / REACHABLE / UNREACHABLE. Les Fog jamais observes restent UNKNOWN.
+La migration 0003_fog_supervision conserve les neuf tables metier.
+
+Le [guide FOG_SUPERVISION.md](docs/FOG_SUPERVISION.md) explique seuils, horloges,
+livraisons retardees, concurrence, journal et reprise. Le journal est consultable
+par `/api/v1/fog/supervision-history`, et les metriques du worker sur le port 8003.
+
+```powershell
+docker compose up -d --build api ingest analytics supervision
+Invoke-RestMethod http://127.0.0.1:8000/api/v1/fog/nodes
+Invoke-RestMethod http://127.0.0.1:8000/api/v1/fog/supervision-history
+```
+
+## Etape 8 - retention des mesures et predictions
+
+Le worker `retention` finalise les agregats des heures expirees avant de purger le brut
+par lots. Le registre technique ingest_receipts conserve la deduplication et les conflits
+apres suppression. Le dernier capteur par machine, alertes, taches et preuves Fog restent
+disponibles. Le [guide RETENTION.md](docs/RETENTION.md) donne limites, activation et reprise.
+
+```powershell
+docker compose up -d --build api ingest analytics supervision retention
+docker compose exec retention python -m scripts.retain_raw
+```
+
+Simulation par defaut (RETENTION_DRY_RUN=true), metriques sur 8004. Le CLI --apply
+supprime un lot ; RETENTION_DRY_RUN=false active la suppression periodique. Les deux
+tables techniques s'ajoutent aux neuf tables metier : onze tables PostgreSQL au total.
+
+## Etape 9 - trois zones et premiere mesure de performance
+
+Les abonnements MQTT couvrent deja A/B/C. Un scenario teste les douze machines,
+les trois alertes Fog, les transferts A->B->C->A, la supervision et les rejeux.
+Les mesures longues comparent HTTP par lots, lectures, MQTT, jobs et retention
+dans des bases et brokers jetables ; elles sont ignorees par les tests ordinaires.
+Une contention de supervision reproduite avec une FK de prediction est corrigee
+par FOR NO KEY UPDATE, sans modification de contrat ni de schema.
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest --mqtt tests/test_mqtt_integration.py -k three_fog
+.\.venv\Scripts\python.exe -m pytest --mqtt --performance tests/test_performance.py -s -x --tb=short
+```
+
+Le [guide PERFORMANCE.md](docs/PERFORMANCE.md) donne les conditions, les mesures
+avant/apres et les limites. La latence des lectures sous charge et celle du MQTT
+en rafale restent a ameliorer et a mesurer sur une topologie plus representative.
+Cette baseline ne termine pas le dimensionnement ou le partitionnement de T12.
+
+## Etape 10 - laboratoire pour tes propres essais
+
+Le [tutoriel LAB_ETAPE10.md](docs/LAB_ETAPE10.md) explique comment generer les flux
+des douze machines A/B/C, consulter PostgreSQL et Swagger, comparer les charges
+et comprendre la latence. Le generateur Windows et les cinq processus backend
+Docker sont separes. Le laboratoire possede sa base fog_lab, ses volumes et ses
+ports ; il ne lit pas le .env de travail.
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.lab start
+.\.venv\Scripts\python.exe -m scripts.lab run --seconds 60 --hz 1
+.\.venv\Scripts\python.exe -m scripts.lab status
+.\.venv\Scripts\python.exe -m scripts.lab sql
+```
+
+Swagger : http://127.0.0.1:8100/docs. A 1 Hz, 720 mesures et 120 autres messages
+sont attendus en 60 s. Pour essayer 5 Hz, utiliser --hz 5. Les rapports JSON restent
+dans data/lab/ (ignore par Git), meme apres `python -m scripts.lab stop`, qui efface
+seulement les conteneurs et volumes du laboratoire.
+
+Le test local de 120 s a 5 Hz a confirme 7428/7428 messages, sans erreur et avec
+cadence respectee : p95 HTTP combine 69,7 ms, p95 MQTT reception->commit (75,100] ms.
+La boucle MQTT non bloquante corrige le retard constate avant cet essai ; les ACK
+restent apres commit et la file reste bornee. Le [rapport PERFORMANCE.md](docs/PERFORMANCE.md)
+precise les conditions et la progression des workers. Les essais utilisent des
+predictions synthetiques ; l'integration des programmes reels MP2/MP4 reste a valider.

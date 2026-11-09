@@ -2,9 +2,9 @@
 
 > Perimetre de travail : MP3 uniquement. Les schemas ci-dessous decrivent la cible.
 > L'etat effectivement verifie et le parcours pas a pas figurent en fin de document,
-> dans « Etape 1 realisee » a « Etape 4 realisee ». L'instantane du 1 novembre reste
+> dans « Etape 1 realisee » a « Etape 8 realisee ». L'instantane du 1 novembre reste
 > conserve pour comprendre le point de depart. Les entrees HTTP et MQTT utilisent maintenant
-> le meme service d'ecriture PostgreSQL ; les API de lecture completes et les KPI restent a venir.
+> le meme service d'ecriture PostgreSQL ; lectures, KPI, supervision et retention sont livres.
 
 Je ne possede que la couche Cloud. Ce document decrit ce qui entre et ce qui sort de mon
 perimetre, afin qu aucun autre module n ait a deviner mes hypotheses.
@@ -383,5 +383,107 @@ Les retransmissions sont absorbees par la deduplication de l'etape 3.
 Le guide [MQTT_INGESTION.md](../mp3-cloud/docs/MQTT_INGESTION.md) detaille lancement,
 publication manuelle, metriques et limites de reprise. Le broker sauvegarde periodiquement
 ses sessions ; les producteurs doivent aussi tamponner leurs messages lorsqu'il est inaccessible.
-Les rejets n'ont pas encore de quarantaine durable. L'etape 5 complete les API de lecture ;
-la supervision temporelle des Fog et les jobs KPI restent a implementer.
+Les rejets n'ont pas encore de quarantaine durable. L'etape 5 est realisee ci-dessous ;
+la supervision persistante des Fog et les jobs KPI restent a implementer.
+
+## Etape 5 realisee - lectures verifiees le 7 novembre 2026
+
+Les 13 GET metier couvrent catalogue, derniere mesure, historiques de mesures et de charge,
+predictions, alertes, etats Fog, projections des taches et journal. Les huit collections
+renvoient items/meta, des pages bornees, des filtres valides et un tri par cle primaire
+pour les egalites. Les dates inconnues restent NULL et les bornes temporelles sont UTC.
+
+La zone d'une prediction ou alerte vient de sa machine, distincte du Fog executant.
+La zone d'une tache ou de ses evenements vient de l'origine connue. Le journal distingue
+creation, reception Cloud et date d'evenement connue. La lecture Fog expose l'age et le
+caractere stale du heartbeat, en conservant le statut rapporte sans inventer une panne.
+
+Les lectures restent publiques dans l'environnement de demonstration. L'ingestion conserve
+son token, maintenant declare dans Swagger. Les 404 / 503 des lectures ont un Problem au
+premier niveau ; les 422 conservent le format de validation FastAPI.
+
+- 247 tests reussis avec --mqtt, dont les 149 precedents et 98 nouveaux controles de lecture.
+- Reponses PostgreSQL validees contre les schemas OpenAPI 3.0 publies.
+- Contrat des GET synchronise avec FastAPI et valide ; routes futures marquees planned.
+- Ruff valide, 11 fixtures conformes, Compose valide, aucune migration supplementaire.
+- Donnees de verification exclusivement dans des bases / brokers jetables.
+- API Docker Python 3.12 construite et demarree ; les 13 lectures et Swagger verifies par HTTP.
+- Base de travail preservee : 12 machines, 3 Fog, aucune observation synthetique ; ressources de test nettoyees.
+
+Le guide [READ_API.md](../mp3-cloud/docs/READ_API.md) detaille les routes, erreurs et limites
+de pagination sous ingestion concurrente. L'etape 6 est realisee ci-dessous.
+
+## Etape 6 realisee - analytics verifies le 7 novembre 2026
+
+Le processus Docker analytics agrege les observations en SQL sur les heures UTC terminees.
+Les 21 indicateurs vivent dans kpi_records ; quatre GET analytics lisent le cache,
+avec unites, effectifs, dates source et fraicheur. Les dimensions zone, machine, Fog
+et modele sont independantes. Les rapports de taches utilisent received_at jusqu'a
+fourniture de dates d'evenement ; le MTTR d'alertes utilise la cohorte de resolutions.
+
+Chaque refresh possede une transaction REPEATABLE READ et un verrou advisory non bloquant.
+Les seules metriques du module sont remplacees atomiquement. Timeout ou annulation
+conserve l'ancien cache. Le lookback est borne par la retention declaree ; l'ancien
+cache reste disponible. Aucune purge automatique n'est introduite.
+
+La migration 0002_kpi_scope permet les versions de modele de 64 caracteres et indexe
+receptions de taches / resolutions critiques, avec toujours neuf tables metier.
+La precision ML, la disponibilite, le MTBF et les temps de reprise restent indisponibles
+en l'absence de labels, transitions completes et chronologies de tentatives.
+
+- 316 tests reussis avec --mqtt, dont 69 nouveaux controles analytics.
+- Ruff, 11 fixtures, contrat OpenAPI 3.0.3 et Compose valides.
+- API et analytics construits sous Python 3.12 ; quatre GET verifies et analytics healthy.
+- Le worker a attendu le schema puis confirme son refresh ; metriques sur le port 8002.
+- Base de travail sans observation synthetique ; tests dans des bases et brokers jetables.
+
+Le guide [KPI_FORMULAS.md](../mp3-cloud/docs/KPI_FORMULAS.md) detaille calculs, limites
+et reprise. La supervision persistante est realisee ci-dessous ; retention et
+performance restent a implementer/mesurer.
+
+## Etape 7 realisee - supervision verifiee le 7 novembre 2026
+
+Le worker supervision verifie date producteur et reception Cloud des heartbeats.
+Il conserve decisions UNKNOWN / REACHABLE / UNREACHABLE et raisons dans les tables
+existantes, sans modifier le statut MP2. Les verrous sont partages avec l'ingestion,
+les transactions sont bornees et les reprises apres erreur utilisent des sessions neuves.
+Les lacunes de scan sont UNKNOWN / MONITOR_GAP avec bornes ; aucune panne reelle n'est
+reconstruite dans une periode inconnue. Les anciens messages et doublons ne reactivent
+pas un noeud silencieux ; les erreurs d'horloge sont explicites.
+
+La migration 0003_fog_supervision conserve neuf tables metier et distingue HEARTBEAT
+de SUPERVISION par CHECK, avec refus de downgrade effacant des preuves Cloud.
+Les lectures conservent l'historique producteur et ajoutent /fog/supervision-history,
+fraicheur et etat effectif. Le calcul de disponibilite reelle reste indisponible.
+
+- 364 tests reussis avec --mqtt, dont les 316 precedents et 48 controles supplementaires.
+- Ruff, 11 fixtures, contrat OpenAPI et Compose valides ; metadata Alembic conforme.
+- Images Python 3.12 construites, workers ingestion / analytics / supervision healthy.
+- Supervision ready=1 sur 8003 ; trois Fog UNKNOWN sans faux heartbeat ni panne inventee.
+
+Le guide [FOG_SUPERVISION.md](../mp3-cloud/docs/FOG_SUPERVISION.md) donne les seuils,
+limites et commandes. La retention est realisee ci-dessous avec preservation de la
+deduplication et des preuves d'alertes, KPI et chronologies.
+
+## Etape 8 realisee - retention verifiee le 7 novembre 2026
+
+Le worker retention finalise les quinze agregrats horaires de mesures/predictions
+avant suppression des bruts expires. Une marque technique fige l'heure et interdit
+un recalcul sur une source partiellement ou entierement supprimee. Les nouvelles
+observations d'une heure finalisee sont refusees ; les doublons connus restent reconnus.
+Ingestion et purge utilisent une barriere partagee/exclusive et un commit atomique.
+
+Le registre technique ingest_receipts conserve kind/message_id et empreinte SHA-256.
+Il complete les neuf tables metier, avec alembic_version : onze tables PostgreSQL.
+La migration 0004 refuse un downgrade perdant les preuves de bruts deja expires.
+Le dernier capteur, alertes, taches et historique Fog restent conserves. Les lots
+suivants utilisent le cache complet et ne recalculent pas une moyenne du brut restant.
+
+- 385 tests reussis avec --mqtt, dont 21 nouveaux ; 27 controles de base apres le garde-fou final.
+- Ruff, 11 fixtures, OpenAPI et Compose valides ; metadata Alembic conforme.
+- Images Python 3.12 construites ; retention, ingestion, analytics et supervision healthy.
+- Retention dry_run=1 sur 8004, candidats=0 ; aucune donnee de travail supprimee.
+
+Le guide [RETENTION.md](../mp3-cloud/docs/RETENTION.md) explique perimetre, admission
+des messages expires, activation et limites de stockage. La mesure des performances
+et de la contention precede les futures optimisations ou partitions.

@@ -6,6 +6,7 @@ addopts = "-q --strict-markers"
 markers = [
     "postgres: tests d'integration dans une base PostgreSQL jetable (--postgres)",
     "mqtt: tests avec broker MQTT Docker et base jetables (--mqtt)",
+    "performance: mesures longues et rapports, actives uniquement avec --performance",
 ]
 
 [tool.ruff]

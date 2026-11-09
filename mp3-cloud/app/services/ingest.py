@@ -5,7 +5,7 @@ deduplication et la validation s appliquent partout de la meme facon.
 """
 
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from pydantic import ValidationError
@@ -14,6 +14,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.models.tables import (
     Alert,
     FogNode,
@@ -30,6 +31,7 @@ from app.schemas.messages import (
     PredictionResult,
     TaskEvent,
 )
+from app.services.receipts import SCHEMAS, ingest_retention_barrier, reserve_receipt
 
 SCHEMA_BY_KIND: dict[str, type] = {
     "sensor": MachineData,
@@ -110,10 +112,14 @@ async def _insert_message(
     if (await session.execute(statement)).scalar_one_or_none() is not None:
         return True
     previous = (
-        await session.execute(
-            select(model.__table__).where(model.message_id == values["message_id"])
+        (
+            await session.execute(
+                select(model.__table__).where(model.message_id == values["message_id"])
+            )
         )
-    ).mappings().one()
+        .mappings()
+        .one()
+    )
     if any(previous[key] != value for key, value in values.items()):
         raise MessageConflict(
             "MESSAGE_ID_CONFLICT", "message_id already exists with different content"
@@ -123,13 +129,19 @@ async def _insert_message(
 
 async def _write_fog(session: AsyncSession, message: FogStatus) -> bool:
     # Verrouiller avant l'historique : charge courante et observation restent atomiques.
+    # FOR NO KEY UPDATE serialise les changements d'etat, sans bloquer les FK des
+    # predictions/alertes/taches. fog_id et zone ne sont jamais modifies ici.
     node = (
-        await session.execute(
-            select(FogNode.__table__)
-            .where(FogNode.fog_id == message.fog_id)
-            .with_for_update()
+        (
+            await session.execute(
+                select(FogNode.__table__)
+                .where(FogNode.fog_id == message.fog_id)
+                .with_for_update(key_share=True)
+            )
         )
-    ).mappings().one_or_none()
+        .mappings()
+        .one_or_none()
+    )
     if node is None or node["zone"] != message.zone:
         raise MessageConflict("REFERENCE_ERROR", "Fog is missing or does not belong to this zone")
     values = message.model_dump()
@@ -139,7 +151,15 @@ async def _write_fog(session: AsyncSession, message: FogStatus) -> bool:
         return False
     # A date egale, la premiere observation enregistree reste courante.
     heartbeat = node["last_heartbeat"]
-    if heartbeat is None or message.last_heartbeat > heartbeat:
+    tolerance = timedelta(seconds=get_settings().heartbeat_clock_skew_seconds)
+    correcting_clock = (
+        heartbeat is not None
+        and heartbeat > received_at + tolerance
+        and message.last_heartbeat <= received_at + tolerance
+        and message.last_heartbeat
+        >= received_at - timedelta(seconds=get_settings().heartbeat_timeout_seconds)
+    )
+    if heartbeat is None or message.last_heartbeat > heartbeat or correcting_clock:
         current = message.model_dump(exclude={"message_id", "fog_id", "zone"})
         current["last_received_at"] = received_at
         if message.status == "OFFLINE":
@@ -183,10 +203,14 @@ async def _write_task(session: AsyncSession, message: TaskEvent) -> bool:
         .on_conflict_do_nothing(index_elements=["task_id"])
     )
     task = (
-        await session.execute(
-            select(Task.__table__).where(Task.task_id == values["task_id"]).with_for_update()
+        (
+            await session.execute(
+                select(Task.__table__).where(Task.task_id == values["task_id"]).with_for_update()
+            )
         )
-    ).mappings().one()
+        .mappings()
+        .one()
+    )
     if task["task_type"] != message.task_type or task["created_at"] != message.created_at:
         raise MessageConflict("TASK_CONFLICT", "task type and creation date must remain stable")
     if origin is not None and task["origin_fog_id"] not in {None, origin}:
@@ -217,6 +241,16 @@ async def _write_task(session: AsyncSession, message: TaskEvent) -> bool:
 
 
 async def _write_message(session: AsyncSession, kind: str, message: Any) -> bool:
+    if kind in SCHEMAS:
+        receipt = await reserve_receipt(session, kind, message)
+        if receipt == "duplicate":
+            return False
+        if receipt == "conflict":
+            raise MessageConflict("MESSAGE_ID_CONFLICT", "message_id already has different content")
+        if receipt == "expired":
+            raise MessageConflict(
+                "EXPIRED_WINDOW", "Observation hour is finalized and raw data expired"
+            )
     if kind == "fog_status":
         return await _write_fog(session, message)
     if kind == "task_event":
@@ -245,6 +279,7 @@ async def persist_batch(session: AsyncSession, messages: list[dict[str, Any]]) -
     """
     report = IngestReport()
     async with session.begin():
+        await ingest_retention_barrier(session)
         for index, item in enumerate(messages):
             try:
                 try:

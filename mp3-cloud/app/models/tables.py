@@ -18,12 +18,14 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Integer,
+    LargeBinary,
     Numeric,
     String,
     Text,
     UniqueConstraint,
     Uuid,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -75,6 +77,32 @@ def _task_constraints(prefix: str) -> tuple[CheckConstraint, ...]:
     )
 
 
+SUPERVISION_STATES = "'UNKNOWN', 'REACHABLE', 'UNREACHABLE'"
+SUPERVISION_REASONS = (
+    "'NO_HEARTBEAT', 'FRESH_HEARTBEAT', 'HEARTBEAT_TIMEOUT', 'REPORTED_OFFLINE', "
+    "'CLOCK_SKEW', 'MONITOR_GAP'"
+)
+
+
+def _supervision_constraints(prefix: str) -> tuple[CheckConstraint, ...]:
+    return (
+        CheckConstraint(
+            f"supervision_status IN ({SUPERVISION_STATES})", name=f"ck_{prefix}_supervision_status"
+        ),
+        CheckConstraint(
+            f"supervision_reason IN ({SUPERVISION_REASONS})", name=f"ck_{prefix}_supervision_reason"
+        ),
+        CheckConstraint(
+            "(supervision_status='UNKNOWN' AND supervision_reason IN "
+            "('NO_HEARTBEAT','CLOCK_SKEW','MONITOR_GAP')) OR "
+            "(supervision_status='REACHABLE' AND supervision_reason='FRESH_HEARTBEAT') OR "
+            "(supervision_status='UNREACHABLE' AND supervision_reason IN "
+            "('HEARTBEAT_TIMEOUT','REPORTED_OFFLINE'))",
+            name=f"ck_{prefix}_supervision_consistency",
+        ),
+    )
+
+
 class FogNode(Base):
     """Catalogue des trois Fog et dernier etat observe, sans charge fictive."""
 
@@ -84,6 +112,7 @@ class FogNode(Base):
         CheckConstraint("zone IN ('A', 'B', 'C')", name="ck_fog_zone"),
         CheckConstraint("fog_id = 'FOG_' || zone", name="ck_fog_id_zone"),
         *_load_constraints("fog"),
+        *_supervision_constraints("fog"),
     )
 
     fog_id: Mapped[str] = mapped_column(String(5), primary_key=True)
@@ -99,6 +128,10 @@ class FogNode(Base):
     )
     offline_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     recovered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    supervision_status: Mapped[str] = mapped_column(String(16), server_default="UNKNOWN")
+    supervision_reason: Mapped[str] = mapped_column(String(32), server_default="NO_HEARTBEAT")
+    supervision_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    supervision_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     environment_ref: Mapped[str | None] = mapped_column(String(128), nullable=True)
     endpoint: Mapped[str | None] = mapped_column(Text, nullable=True)
     registered_at: Mapped[datetime] = mapped_column(
@@ -237,6 +270,11 @@ class Alert(Base):
         Index("ix_alert_status_severity", "status", "severity"),
         Index("ix_alert_machine_ts", "machine_id", "timestamp"),
         Index("ix_alert_fog_ts", "fog_id", "timestamp"),
+        Index(
+            "ix_alert_resolved",
+            "resolved_at",
+            postgresql_where=text("status='RESOLVED' AND severity='CRITICAL'"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -265,12 +303,40 @@ class FogStatusHistory(Base):
     __table_args__ = (
         *_message_constraints("fog_history"),
         *_load_constraints("fog_history"),
+        *_supervision_constraints("fog_history"),
+        CheckConstraint(
+            "(record_type='HEARTBEAT' AND status IS NOT NULL AND cpu_percent IS NOT NULL "
+            "AND ram_percent IS NOT NULL AND queued_tasks IS NOT NULL AND active_tasks IS NOT NULL "
+            "AND supervision_status IS NULL AND supervision_reason IS NULL "
+            "AND previous_supervision_status IS NULL AND evidence_heartbeat_at IS NULL "
+            "AND evidence_received_at IS NULL AND timeout_seconds IS NULL "
+            "AND gap_start IS NULL AND gap_end IS NULL) OR "
+            "(record_type='SUPERVISION' AND status IS NULL AND cpu_percent IS NULL "
+            "AND ram_percent IS NULL AND queued_tasks IS NULL AND active_tasks IS NULL "
+            "AND supervision_status IS NOT NULL AND supervision_reason IS NOT NULL "
+            "AND previous_supervision_status IS NOT NULL AND timeout_seconds > 0 "
+            "AND timeout_seconds IS NOT NULL AND "
+            "((supervision_reason='MONITOR_GAP' AND gap_start IS NOT NULL "
+            "AND gap_end IS NOT NULL AND gap_end > gap_start AND gap_end=observed_at) OR "
+            "(supervision_reason<>'MONITOR_GAP' AND gap_start IS NULL AND gap_end IS NULL)))",
+            name="ck_fog_history_record_type",
+        ),
+        CheckConstraint(
+            f"previous_supervision_status IN ({SUPERVISION_STATES})",
+            name="ck_fog_history_previous_supervision",
+        ),
         ForeignKeyConstraint(
             ["fog_id", "zone"],
             ["fog_nodes.fog_id", "fog_nodes.zone"],
             name="fk_fog_history_fog_zone",
         ),
         Index("ix_fog_history_fog_observed", "fog_id", "observed_at", "id"),
+        Index(
+            "ix_fog_supervision_observed",
+            "observed_at",
+            "id",
+            postgresql_where=text("record_type='SUPERVISION'"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -281,11 +347,20 @@ class FogStatusHistory(Base):
     received_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
-    status: Mapped[str] = mapped_column(String(12))
-    cpu_percent: Mapped[float] = mapped_column(Float)
-    ram_percent: Mapped[float] = mapped_column(Float)
-    queued_tasks: Mapped[int] = mapped_column(Integer)
-    active_tasks: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str | None] = mapped_column(String(12))
+    cpu_percent: Mapped[float | None] = mapped_column(Float)
+    ram_percent: Mapped[float | None] = mapped_column(Float)
+    queued_tasks: Mapped[int | None] = mapped_column(Integer)
+    active_tasks: Mapped[int | None] = mapped_column(Integer)
+    record_type: Mapped[str] = mapped_column(String(16), server_default="HEARTBEAT")
+    supervision_status: Mapped[str | None] = mapped_column(String(16))
+    previous_supervision_status: Mapped[str | None] = mapped_column(String(16))
+    supervision_reason: Mapped[str | None] = mapped_column(String(32))
+    evidence_heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    evidence_received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    timeout_seconds: Mapped[int | None] = mapped_column(Integer)
+    gap_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    gap_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Task(Base):
@@ -348,6 +423,7 @@ class TaskEvent(Base):
         Index("ix_task_event_status_occurred", "status", "occurred_at"),
         Index("ix_task_event_source_created", "source_fog", "created_at"),
         Index("ix_task_event_destination_occurred", "destination_fog", "occurred_at"),
+        Index("ix_task_event_received", "received_at"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -391,11 +467,28 @@ class KpiRecord(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     metric: Mapped[str] = mapped_column(String(48))
     scope: Mapped[str] = mapped_column(String(16))
-    scope_value: Mapped[str] = mapped_column(String(16))
+    scope_value: Mapped[str] = mapped_column(String(64))
     bucket_start: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     bucket_end: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     value: Mapped[float] = mapped_column(Float)
     sample_size: Mapped[int] = mapped_column(Integer, server_default="0")
     computed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class IngestReceipt(Base):
+    """Technical idempotency ledger retained when high-volume raw observations expire."""
+
+    __tablename__ = "ingest_receipts"
+    __table_args__ = (
+        CheckConstraint("kind IN ('sensor','prediction')", name="ck_receipt_kind"),
+        CheckConstraint("length(message_id) BETWEEN 8 AND 64", name="ck_receipt_message_id"),
+        CheckConstraint("octet_length(payload_sha256)=32", name="ck_receipt_digest"),
+    )
+    kind: Mapped[str] = mapped_column(String(16), primary_key=True)
+    message_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    payload_sha256: Mapped[bytes] = mapped_column(LargeBinary)
+    recorded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

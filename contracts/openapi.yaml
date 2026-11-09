@@ -2,259 +2,1863 @@ openapi: 3.0.3
 info:
   title: FOG Cloud API (MP3)
   version: 0.1.0
-  description: >
-    Contrat publie en semaine 1. Le dashboard (MP4) developpe contre ces routes en mock
-    avant que le backend soit termine. Toute modification non retrocompatible passe par une
-    PR etiquetee BREAKING validee par MP3 et MP4.
+  description: 'Contrat MP3 : les lectures marquees implemented correspondent a l''API FastAPI. Les operations
+    marquees planned sont une feuille de route, pas des routes disponibles. Lectures publiques pour la
+    demonstration locale ; ingestion protegee par bearer token.'
 servers:
-  - url: http://localhost:8000/api/v1
+- url: http://localhost:8000/api/v1
 security:
-  - BearerAuth: []
+- BearerAuth: []
 tags:
-  - name: ingest
-  - name: machines
-  - name: measurements
-  - name: predictions
-  - name: alerts
-  - name: fog
-  - name: tasks
-  - name: analytics
+- name: ingest
+- name: machines
+- name: measurements
+- name: predictions
+- name: alerts
+- name: fog
+- name: tasks
+- name: analytics
 paths:
   /ingest/batch:
     post:
-      tags: [ingest]
+      tags:
+      - ingest
       summary: Ingestion HTTP de secours (seed, tests, rejeu)
-      description: >
-        Ecritures confirmees par transaction. Les erreurs metier sont isolees par element.
-        Une retransmission identique est un doublon sans effet ; reutiliser le meme
-        message_id avec un autre contenu est rejete. Un lot de doublons seuls recoit 207.
+      description: 'Ecritures confirmees par transaction. Les erreurs metier sont isolees par element.
+        Une retransmission identique est un doublon sans effet ; reutiliser le meme message_id avec un
+        autre contenu est rejete. Un lot de doublons seuls recoit 207.
+
+        '
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/BatchRequest' }
+            schema:
+              $ref: '#/components/schemas/BatchRequest'
       responses:
-        '207': { description: Lot confirme avec au moins une insertion ou un doublon, content: { application/json: { schema: { $ref: '#/components/schemas/BatchReport' } } } }
+        '207':
+          description: Lot confirme avec au moins une insertion ou un doublon
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchReport'
         '401':
           description: Token absent ou invalide, reponse existante de la dependance
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/IngestUnauthorized' }
+              schema:
+                $ref: '#/components/schemas/IngestUnauthorized'
         '422':
           description: Tous les messages rejetes ou enveloppe FastAPI invalide
           content:
             application/json:
               schema:
                 oneOf:
-                  - { $ref: '#/components/schemas/BatchRejected' }
-                  - { $ref: '#/components/schemas/RequestValidationError' }
+                - $ref: '#/components/schemas/BatchRejected'
+                - $ref: '#/components/schemas/RequestValidationError'
         '503':
           description: Transaction non confirmee, sans compteur de succes ; rejeu avec les memes identifiants
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Problem' }
-        '500': { $ref: '#/components/responses/Problem' }
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          $ref: '#/components/responses/Problem'
+      x-implementation-status: implemented
   /machines:
     get:
-      tags: [machines]
-      summary: Lister les machines
+      tags:
+      - machines
+      summary: List Machines
+      operationId: list_machines_api_v1_machines_get
       parameters:
-        - { $ref: '#/components/parameters/Zone' }
-        - { $ref: '#/components/parameters/Limit' }
-        - { $ref: '#/components/parameters/Offset' }
+      - name: zone
+        in: query
+        required: false
+        schema:
+          enum:
+          - A
+          - B
+          - C
+          - null
+          type: string
+          title: Zone
+          nullable: true
+      - name: sort
+        in: query
+        required: false
+        schema:
+          enum:
+          - machine_id
+          - -machine_id
+          - name
+          - -name
+          - zone
+          - -zone
+          type: string
+          default: machine_id
+          title: Sort
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
       responses:
         '200':
-          description: Page de machines
+          description: Successful Response
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/MachinePage' }
-  /machines/{machineId}:
-    get:
-      tags: [machines]
-      parameters: [ { $ref: '#/components/parameters/MachineId' } ]
-      responses:
-        '200': { description: Machine, content: { application/json: { schema: { $ref: '#/components/schemas/Machine' } } } }
-        '404': { $ref: '#/components/responses/NotFound' }
-  /machines/{machineId}/latest:
-    get:
-      tags: [measurements]
-      summary: Derniere mesure connue d une machine
-      parameters: [ { $ref: '#/components/parameters/MachineId' } ]
-      responses:
-        '200': { description: Mesure, content: { application/json: { schema: { $ref: '#/components/schemas/SensorData' } } } }
+              schema:
+                $ref: '#/components/schemas/Page_MachineRead_'
+        '404':
+          description: Ressource inconnue ou mesure absente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '503':
+          description: Lecture indisponible ; reessayer plus tard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security: []
+      x-implementation-status: implemented
   /measurements:
     get:
-      tags: [measurements]
-      summary: Historique des mesures (pagines, filtres machine/zone/periode)
+      tags:
+      - measurements
+      summary: Measurements
+      operationId: measurements_api_v1_measurements_get
       parameters:
-        - { $ref: '#/components/parameters/MachineIdQ' }
-        - { $ref: '#/components/parameters/Zone' }
-        - { $ref: '#/components/parameters/From' }
-        - { $ref: '#/components/parameters/To' }
-        - { $ref: '#/components/parameters/Sort' }
-        - { $ref: '#/components/parameters/Limit' }
-        - { $ref: '#/components/parameters/Offset' }
+      - name: machine_id
+        in: query
+        required: false
+        schema:
+          type: string
+          pattern: ^M(0[1-9]|1[0-2])$
+          title: Machine Id
+          nullable: true
+      - name: zone
+        in: query
+        required: false
+        schema:
+          enum:
+          - A
+          - B
+          - C
+          - null
+          type: string
+          title: Zone
+          nullable: true
+      - name: sort
+        in: query
+        required: false
+        schema:
+          enum:
+          - timestamp
+          - -timestamp
+          - received_at
+          - -received_at
+          - id
+          - -id
+          type: string
+          default: -timestamp
+          title: Sort
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          title: From
+          nullable: true
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          title: To
+          nullable: true
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
       responses:
-        '200': { description: Page de mesures, content: { application/json: { schema: { $ref: '#/components/schemas/SensorDataPage' } } } }
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page_MeasurementRead_'
+        '404':
+          description: Ressource inconnue ou mesure absente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '503':
+          description: Lecture indisponible ; reessayer plus tard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security: []
+      x-implementation-status: implemented
   /predictions:
     get:
-      tags: [predictions]
+      tags:
+      - predictions
+      summary: Predictions
+      operationId: predictions_api_v1_predictions_get
       parameters:
-        - { $ref: '#/components/parameters/MachineIdQ' }
-        - { $ref: '#/components/parameters/Zone' }
-        - { $ref: '#/components/parameters/AnomalyOnly' }
-        - { $ref: '#/components/parameters/From' }
-        - { $ref: '#/components/parameters/To' }
-        - { $ref: '#/components/parameters/Limit' }
-        - { $ref: '#/components/parameters/Offset' }
+      - name: machine_id
+        in: query
+        required: false
+        schema:
+          type: string
+          pattern: ^M(0[1-9]|1[0-2])$
+          title: Machine Id
+          nullable: true
+      - name: zone
+        in: query
+        required: false
+        schema:
+          enum:
+          - A
+          - B
+          - C
+          - null
+          type: string
+          title: Zone
+          nullable: true
+      - name: fog_id
+        in: query
+        required: false
+        schema:
+          enum:
+          - FOG_A
+          - FOG_B
+          - FOG_C
+          - null
+          type: string
+          title: Fog Id
+          nullable: true
+      - name: anomaly
+        in: query
+        required: false
+        schema:
+          type: boolean
+          title: Anomaly
+          nullable: true
+      - name: severity
+        in: query
+        required: false
+        schema:
+          enum:
+          - NORMAL
+          - WARNING
+          - CRITICAL
+          - null
+          type: string
+          title: Severity
+          nullable: true
+      - name: model_version
+        in: query
+        required: false
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 64
+          title: Model Version
+          nullable: true
+      - name: sort
+        in: query
+        required: false
+        schema:
+          enum:
+          - timestamp
+          - -timestamp
+          - received_at
+          - -received_at
+          - risk_score
+          - -risk_score
+          - id
+          - -id
+          type: string
+          default: -timestamp
+          title: Sort
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          title: From
+          nullable: true
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          title: To
+          nullable: true
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
       responses:
-        '200': { description: Page de predictions, content: { application/json: { schema: { $ref: '#/components/schemas/PredictionPage' } } } }
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page_PredictionRead_'
+        '404':
+          description: Ressource inconnue ou mesure absente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '503':
+          description: Lecture indisponible ; reessayer plus tard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security: []
+      x-implementation-status: implemented
   /alerts:
     get:
-      tags: [alerts]
+      tags:
+      - alerts
+      summary: Alerts
+      operationId: alerts_api_v1_alerts_get
       parameters:
-        - name: status
-          in: query
-          schema: { type: string, enum: [OPEN, ACKNOWLEDGED, RESOLVED] }
-        - name: severity
-          in: query
-          schema: { type: string, enum: [NORMAL, WARNING, CRITICAL] }
-        - { $ref: '#/components/parameters/From' }
-        - { $ref: '#/components/parameters/To' }
-        - { $ref: '#/components/parameters/Limit' }
-        - { $ref: '#/components/parameters/Offset' }
+      - name: machine_id
+        in: query
+        required: false
+        schema:
+          type: string
+          pattern: ^M(0[1-9]|1[0-2])$
+          title: Machine Id
+          nullable: true
+      - name: zone
+        in: query
+        required: false
+        schema:
+          enum:
+          - A
+          - B
+          - C
+          - null
+          type: string
+          title: Zone
+          nullable: true
+      - name: fog_id
+        in: query
+        required: false
+        schema:
+          enum:
+          - FOG_A
+          - FOG_B
+          - FOG_C
+          - null
+          type: string
+          title: Fog Id
+          nullable: true
+      - name: status
+        in: query
+        required: false
+        schema:
+          enum:
+          - OPEN
+          - ACKNOWLEDGED
+          - RESOLVED
+          - null
+          type: string
+          title: Status
+          nullable: true
+      - name: severity
+        in: query
+        required: false
+        schema:
+          enum:
+          - NORMAL
+          - WARNING
+          - CRITICAL
+          - null
+          type: string
+          title: Severity
+          nullable: true
+      - name: sort
+        in: query
+        required: false
+        schema:
+          enum:
+          - timestamp
+          - -timestamp
+          - received_at
+          - -received_at
+          - id
+          - -id
+          type: string
+          default: -timestamp
+          title: Sort
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          title: From
+          nullable: true
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          title: To
+          nullable: true
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
       responses:
-        '200': { description: Page d alertes, content: { application/json: { schema: { $ref: '#/components/schemas/AlertPage' } } } }
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page_AlertRead_'
+        '404':
+          description: Ressource inconnue ou mesure absente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '503':
+          description: Lecture indisponible ; reessayer plus tard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security: []
+      x-implementation-status: implemented
   /alerts/{alertId}/acknowledge:
     patch:
-      tags: [alerts]
+      tags:
+      - alerts
       summary: Acquittement d une alerte (audit trail)
-      parameters: [ { $ref: '#/components/parameters/AlertId' } ]
+      parameters:
+      - $ref: '#/components/parameters/AlertId'
       responses:
-        '200': { description: Alerte mise a jour }
+        '200':
+          description: Alerte mise a jour
+      x-implementation-status: planned
   /fog/nodes:
     get:
-      tags: [fog]
-      summary: Sante des noeuds Fog
+      tags:
+      - fog
+      summary: Fog Nodes
+      operationId: fog_nodes_api_v1_fog_nodes_get
+      parameters:
+      - name: zone
+        in: query
+        required: false
+        schema:
+          enum:
+          - A
+          - B
+          - C
+          - null
+          type: string
+          title: Zone
+          nullable: true
+      - name: status
+        in: query
+        required: false
+        schema:
+          enum:
+          - ONLINE
+          - OVERLOADED
+          - OFFLINE
+          - RECOVERING
+          - null
+          type: string
+          title: Status
+          nullable: true
+      - name: supervision_status
+        in: query
+        required: false
+        schema:
+          enum:
+          - UNKNOWN
+          - REACHABLE
+          - UNREACHABLE
+          - null
+          type: string
+          title: Supervision Status
+          nullable: true
+      - name: sort
+        in: query
+        required: false
+        schema:
+          enum:
+          - fog_id
+          - -fog_id
+          - zone
+          - -zone
+          - last_heartbeat
+          - -last_heartbeat
+          type: string
+          default: fog_id
+          title: Sort
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
       responses:
-        '200': { description: Liste, content: { application/json: { schema: { $ref: '#/components/schemas/FogNodeList' } } } }
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FogNodePage'
+        '404':
+          description: Ressource inconnue ou mesure absente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '503':
+          description: Lecture indisponible ; reessayer plus tard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security: []
+      x-implementation-status: implemented
   /tasks/events:
     get:
-      tags: [tasks]
-      summary: Historique des taches et migrations
+      tags:
+      - tasks
+      summary: Task Events
+      operationId: task_events_api_v1_tasks_events_get
       parameters:
-        - name: source_fog
-          in: query
-          schema: { type: string }
-        - name: status
-          in: query
-          schema: { type: string }
-        - { $ref: '#/components/parameters/From' }
-        - { $ref: '#/components/parameters/To' }
-        - { $ref: '#/components/parameters/Limit' }
-        - { $ref: '#/components/parameters/Offset' }
+      - name: task_id
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid4
+          title: Task Id
+          nullable: true
+      - name: source_fog
+        in: query
+        required: false
+        schema:
+          enum:
+          - FOG_A
+          - FOG_B
+          - FOG_C
+          - null
+          type: string
+          title: Source Fog
+          nullable: true
+      - name: destination_fog
+        in: query
+        required: false
+        schema:
+          enum:
+          - FOG_A
+          - FOG_B
+          - FOG_C
+          - null
+          type: string
+          title: Destination Fog
+          nullable: true
+      - name: zone
+        in: query
+        required: false
+        schema:
+          enum:
+          - A
+          - B
+          - C
+          - null
+          type: string
+          title: Zone
+          nullable: true
+      - name: status
+        in: query
+        required: false
+        schema:
+          enum:
+          - CREATED
+          - QUEUED
+          - RUNNING
+          - MIGRATED
+          - COMPLETED
+          - FAILED
+          - RECOVERED
+          - null
+          type: string
+          title: Status
+          nullable: true
+      - name: critical
+        in: query
+        required: false
+        schema:
+          type: boolean
+          title: Critical
+          nullable: true
+      - name: time_field
+        in: query
+        required: false
+        schema:
+          enum:
+          - created_at
+          - received_at
+          - occurred_at
+          type: string
+          default: created_at
+          title: Time Field
+      - name: sort
+        in: query
+        required: false
+        schema:
+          enum:
+          - created_at
+          - -created_at
+          - received_at
+          - -received_at
+          - occurred_at
+          - -occurred_at
+          - id
+          - -id
+          type: string
+          default: -received_at
+          title: Sort
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          title: From
+          nullable: true
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          title: To
+          nullable: true
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
       responses:
-        '200': { description: Page d evenements, content: { application/json: { schema: { $ref: '#/components/schemas/TaskEventPage' } } } }
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page_TaskEventRead_'
+        '404':
+          description: Ressource inconnue ou mesure absente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '503':
+          description: Lecture indisponible ; reessayer plus tard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security: []
+      x-implementation-status: implemented
   /analytics/kpis:
     get:
-      tags: [analytics]
-      summary: KPI usine pre-calculés
+      tags:
+      - analytics
+      summary: Kpis
+      operationId: kpis_api_v1_analytics_kpis_get
       parameters:
-        - name: scope
-          in: query
-          schema: { type: string, enum: [plant, zone, machine, fog] }
-        - { $ref: '#/components/parameters/From' }
-        - { $ref: '#/components/parameters/To' }
+      - name: metric
+        in: query
+        required: false
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 48
+          title: Metric
+          nullable: true
+      - name: scope
+        in: query
+        required: false
+        schema:
+          enum:
+          - plant
+          - zone
+          - machine
+          - fog
+          - model
+          type: string
+          default: plant
+          title: Scope
+      - name: scope_value
+        in: query
+        required: false
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 64
+          title: Scope Value
+          nullable: true
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          title: From
+          nullable: true
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          title: To
+          nullable: true
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
       responses:
-        '200': { description: KPI, content: { application/json: { schema: { $ref: '#/components/schemas/KpiList' } } } }
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KpiPage'
+        '404':
+          description: Ressource inconnue ou mesure absente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '503':
+          description: Lecture indisponible ; reessayer plus tard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security: []
+      x-implementation-status: implemented
   /analytics/model-comparison:
     get:
-      tags: [analytics]
-      summary: Performance comparee par model_version
+      tags:
+      - analytics
+      summary: Model Comparison
+      operationId: model_comparison_api_v1_analytics_model_comparison_get
+      parameters:
+      - name: model_version
+        in: query
+        required: false
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 64
+          title: Model Version
+          nullable: true
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          title: From
+          nullable: true
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          title: To
+          nullable: true
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
       responses:
-        '200': { description: Comparaison }
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KpiPage'
+        '404':
+          description: Ressource inconnue ou mesure absente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '503':
+          description: Lecture indisponible ; reessayer plus tard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security: []
+      x-implementation-status: implemented
   /stream:
     get:
-      tags: [analytics]
+      tags:
+      - analytics
       summary: Flux SSE des evenements temps reel (alerts, changements d etat Fog)
       responses:
-        '200': { description: text/event-stream }
+        '200':
+          description: text/event-stream
+      x-implementation-status: planned
+  /machines/{machine_id}:
+    get:
+      tags:
+      - machines
+      summary: Get Machine
+      operationId: get_machine_api_v1_machines__machine_id__get
+      parameters:
+      - name: machine_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Machine Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MachineRead'
+        '404':
+          description: Ressource inconnue ou mesure absente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '503':
+          description: Lecture indisponible ; reessayer plus tard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security: []
+      x-implementation-status: implemented
+  /machines/{machine_id}/latest:
+    get:
+      tags:
+      - measurements
+      summary: Latest Measurement
+      operationId: latest_measurement_api_v1_machines__machine_id__latest_get
+      parameters:
+      - name: machine_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Machine Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeasurementRead'
+        '404':
+          description: Ressource inconnue ou mesure absente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '503':
+          description: Lecture indisponible ; reessayer plus tard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security: []
+      x-implementation-status: implemented
+  /alerts/{alert_id}:
+    get:
+      tags:
+      - alerts
+      summary: Alert Detail
+      operationId: alert_detail_api_v1_alerts__alert_id__get
+      parameters:
+      - name: alert_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Alert Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertRead'
+        '404':
+          description: Ressource inconnue ou mesure absente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '503':
+          description: Lecture indisponible ; reessayer plus tard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security: []
+      x-implementation-status: implemented
+  /fog/nodes/{fog_id}:
+    get:
+      tags:
+      - fog
+      summary: Fog Detail
+      operationId: fog_detail_api_v1_fog_nodes__fog_id__get
+      parameters:
+      - name: fog_id
+        in: path
+        required: true
+        schema:
+          enum:
+          - FOG_A
+          - FOG_B
+          - FOG_C
+          type: string
+          title: Fog Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FogNodeRead'
+        '404':
+          description: Ressource inconnue ou mesure absente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '503':
+          description: Lecture indisponible ; reessayer plus tard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security: []
+      x-implementation-status: implemented
+  /fog/status-history:
+    get:
+      tags:
+      - fog
+      summary: Fog History
+      operationId: fog_history_api_v1_fog_status_history_get
+      parameters:
+      - name: fog_id
+        in: query
+        required: false
+        schema:
+          enum:
+          - FOG_A
+          - FOG_B
+          - FOG_C
+          - null
+          type: string
+          title: Fog Id
+          nullable: true
+      - name: zone
+        in: query
+        required: false
+        schema:
+          enum:
+          - A
+          - B
+          - C
+          - null
+          type: string
+          title: Zone
+          nullable: true
+      - name: status
+        in: query
+        required: false
+        schema:
+          enum:
+          - ONLINE
+          - OVERLOADED
+          - OFFLINE
+          - RECOVERING
+          - null
+          type: string
+          title: Status
+          nullable: true
+      - name: sort
+        in: query
+        required: false
+        schema:
+          enum:
+          - observed_at
+          - -observed_at
+          - received_at
+          - -received_at
+          - id
+          - -id
+          type: string
+          default: -observed_at
+          title: Sort
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          title: From
+          nullable: true
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          title: To
+          nullable: true
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page_FogHistoryRead_'
+        '404':
+          description: Ressource inconnue ou mesure absente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '503':
+          description: Lecture indisponible ; reessayer plus tard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security: []
+      x-implementation-status: implemented
+  /tasks:
+    get:
+      tags:
+      - tasks
+      summary: Tasks
+      operationId: tasks_api_v1_tasks_get
+      parameters:
+      - name: origin_fog_id
+        in: query
+        required: false
+        schema:
+          enum:
+          - FOG_A
+          - FOG_B
+          - FOG_C
+          - null
+          type: string
+          title: Origin Fog Id
+          nullable: true
+      - name: current_fog_id
+        in: query
+        required: false
+        schema:
+          enum:
+          - FOG_A
+          - FOG_B
+          - FOG_C
+          - null
+          type: string
+          title: Current Fog Id
+          nullable: true
+      - name: machine_id
+        in: query
+        required: false
+        schema:
+          type: string
+          pattern: ^M(0[1-9]|1[0-2])$
+          title: Machine Id
+          nullable: true
+      - name: zone
+        in: query
+        required: false
+        schema:
+          enum:
+          - A
+          - B
+          - C
+          - null
+          type: string
+          title: Zone
+          nullable: true
+      - name: status
+        in: query
+        required: false
+        schema:
+          enum:
+          - CREATED
+          - QUEUED
+          - RUNNING
+          - MIGRATED
+          - COMPLETED
+          - FAILED
+          - RECOVERED
+          - null
+          type: string
+          title: Status
+          nullable: true
+      - name: task_type
+        in: query
+        required: false
+        schema:
+          enum:
+          - ANOMALY_DETECTION
+          - FEATURE_EXTRACTION
+          - AGGREGATION
+          - REPORTING
+          - MODEL_RETRAIN
+          - null
+          type: string
+          title: Task Type
+          nullable: true
+      - name: priority
+        in: query
+        required: false
+        schema:
+          enum:
+          - CRITICAL
+          - HIGH
+          - MEDIUM
+          - LOW
+          - null
+          type: string
+          title: Priority
+          nullable: true
+      - name: critical
+        in: query
+        required: false
+        schema:
+          type: boolean
+          title: Critical
+          nullable: true
+      - name: sort
+        in: query
+        required: false
+        schema:
+          enum:
+          - created_at
+          - -created_at
+          - last_received_at
+          - -last_received_at
+          type: string
+          default: -created_at
+          title: Sort
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          title: From
+          nullable: true
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          title: To
+          nullable: true
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page_TaskRead_'
+        '404':
+          description: Ressource inconnue ou mesure absente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '503':
+          description: Lecture indisponible ; reessayer plus tard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security: []
+      x-implementation-status: implemented
+  /tasks/{task_id}:
+    get:
+      tags:
+      - tasks
+      summary: Task Detail
+      operationId: task_detail_api_v1_tasks__task_id__get
+      parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid4
+          title: Task Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskRead'
+        '404':
+          description: Ressource inconnue ou mesure absente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '503':
+          description: Lecture indisponible ; reessayer plus tard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security: []
+      x-implementation-status: implemented
+  /analytics/measurements:
+    get:
+      tags:
+      - analytics
+      summary: Measurements
+      operationId: measurements_api_v1_analytics_measurements_get
+      parameters:
+      - name: scope
+        in: query
+        required: false
+        schema:
+          enum:
+          - plant
+          - zone
+          - machine
+          - fog
+          - model
+          type: string
+          default: plant
+          title: Scope
+      - name: scope_value
+        in: query
+        required: false
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 64
+          title: Scope Value
+          nullable: true
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          title: From
+          nullable: true
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          title: To
+          nullable: true
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KpiPage'
+        '404':
+          description: Ressource inconnue ou mesure absente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '503':
+          description: Lecture indisponible ; reessayer plus tard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security: []
+      x-implementation-status: implemented
+  /analytics/risk-ranking:
+    get:
+      tags:
+      - analytics
+      summary: Risk Ranking
+      operationId: risk_ranking_api_v1_analytics_risk_ranking_get
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          title: From
+          nullable: true
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          title: To
+          nullable: true
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KpiPage'
+        '404':
+          description: Ressource inconnue ou mesure absente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '503':
+          description: Lecture indisponible ; reessayer plus tard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security: []
+      x-implementation-status: implemented
+  /fog/supervision-history:
+    get:
+      tags:
+      - fog
+      summary: Supervision History
+      operationId: supervision_history_api_v1_fog_supervision_history_get
+      parameters:
+      - name: fog_id
+        in: query
+        required: false
+        schema:
+          enum:
+          - FOG_A
+          - FOG_B
+          - FOG_C
+          - null
+          type: string
+          title: Fog Id
+          nullable: true
+      - name: zone
+        in: query
+        required: false
+        schema:
+          enum:
+          - A
+          - B
+          - C
+          - null
+          type: string
+          title: Zone
+          nullable: true
+      - name: supervision_status
+        in: query
+        required: false
+        schema:
+          enum:
+          - UNKNOWN
+          - REACHABLE
+          - UNREACHABLE
+          - null
+          type: string
+          title: Supervision Status
+          nullable: true
+      - name: sort
+        in: query
+        required: false
+        schema:
+          enum:
+          - observed_at
+          - -observed_at
+          - received_at
+          - -received_at
+          - id
+          - -id
+          type: string
+          default: -observed_at
+          title: Sort
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          title: From
+          nullable: true
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          title: To
+          nullable: true
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page_FogSupervisionRead_'
+        '404':
+          description: Ressource inconnue ou mesure absente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '503':
+          description: Lecture indisponible ; reessayer plus tard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadProblem'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security: []
+      x-implementation-status: implemented
 components:
   securitySchemes:
-    BearerAuth: { type: http, scheme: bearer }
+    BearerAuth:
+      type: http
+      scheme: bearer
   parameters:
     MachineId:
       name: machineId
       in: path
       required: true
-      schema: { type: string, pattern: '^M(0[1-9]|1[0-2])$' }
+      schema:
+        type: string
+        pattern: ^M(0[1-9]|1[0-2])$
     MachineIdQ:
       name: machine_id
       in: query
-      schema: { type: string }
+      schema:
+        type: string
     AlertId:
       name: alertId
       in: path
       required: true
-      schema: { type: string }
+      schema:
+        type: string
     Zone:
       name: zone
       in: query
-      schema: { type: string, enum: [A, B, C] }
+      schema:
+        type: string
+        enum:
+        - A
+        - B
+        - C
     From:
       name: from
       in: query
       description: Borne basse inclusive, ISO-8601 UTC
-      schema: { type: string, format: date-time }
+      schema:
+        type: string
+        format: date-time
     To:
       name: to
       in: query
-      schema: { type: string, format: date-time }
+      schema:
+        type: string
+        format: date-time
     Sort:
       name: sort
       in: query
       description: Champ precede de - pour un tri descendant
-      schema: { type: string, default: '-timestamp' }
+      schema:
+        type: string
+        default: -timestamp
     Limit:
       name: limit
       in: query
-      schema: { type: integer, minimum: 1, maximum: 1000, default: 50 }
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 50
     Offset:
       name: offset
       in: query
-      schema: { type: integer, minimum: 0, default: 0 }
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
     AnomalyOnly:
       name: anomaly
       in: query
-      schema: { type: boolean }
+      schema:
+        type: boolean
   responses:
     Problem:
       description: Erreur normalisee RFC 7807
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/Problem' }
+          schema:
+            $ref: '#/components/schemas/Problem'
     NotFound:
       description: Ressource inconnue
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/Problem' }
+          schema:
+            $ref: '#/components/schemas/Problem'
     Unauthorized:
       description: Token absent ou invalide
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/Problem' }
+          schema:
+            $ref: '#/components/schemas/Problem'
   schemas:
     Problem:
       type: object
       properties:
-        type: { type: string }
-        title: { type: string }
-        status: { type: integer }
-        detail: { type: string }
-        instance: { type: string }
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
     BatchRequest:
       type: object
-      required: [messages]
+      required:
+      - messages
       properties:
         messages:
           type: array
@@ -262,164 +1866,1359 @@ components:
           maxItems: 5000
           items:
             type: object
-            required: [kind, payload]
+            required:
+            - kind
+            - payload
             properties:
-              kind: { type: string, enum: [sensor, prediction, alert, fog_status, task_event] }
-              payload: { type: object }
+              kind:
+                type: string
+                enum:
+                - sensor
+                - prediction
+                - alert
+                - fog_status
+                - task_event
+              payload:
+                type: object
     BatchReport:
       type: object
-      required: [accepted, duplicates, rejected, errors]
+      required:
+      - accepted
+      - duplicates
+      - rejected
+      - errors
       properties:
-        accepted: { type: integer, minimum: 0, description: Messages nouvellement enregistres apres commit }
-        duplicates: { type: integer, minimum: 0, description: Retransmissions identiques sans nouvel effet }
-        rejected: { type: integer, minimum: 0, description: Erreurs de validation ou de coherence isolees }
+        accepted:
+          type: integer
+          minimum: 0
+          description: Messages nouvellement enregistres apres commit
+        duplicates:
+          type: integer
+          minimum: 0
+          description: Retransmissions identiques sans nouvel effet
+        rejected:
+          type: integer
+          minimum: 0
+          description: Erreurs de validation ou de coherence isolees
         errors:
           type: array
           items:
             type: object
-            required: [index, code, detail]
+            required:
+            - index
+            - code
+            - detail
             properties:
-              index: { type: integer, minimum: 0 }
-              code: { type: string }
-              detail: { type: string }
+              index:
+                type: integer
+                minimum: 0
+              code:
+                type: string
+              detail:
+                type: string
     BatchRejected:
       allOf:
-        - { $ref: '#/components/schemas/Problem' }
-        - { $ref: '#/components/schemas/BatchReport' }
-        - type: object
-          required: [code]
-          properties:
-            code: { type: string, enum: [NO_VALID_MESSAGE] }
+      - $ref: '#/components/schemas/Problem'
+      - $ref: '#/components/schemas/BatchReport'
+      - type: object
+        required:
+        - code
+        properties:
+          code:
+            type: string
+            enum:
+            - NO_VALID_MESSAGE
     RequestValidationError:
       type: object
-      required: [detail]
+      required:
+      - detail
       properties:
         detail:
           type: array
-          items: { type: object }
+          items:
+            type: object
     IngestUnauthorized:
       type: object
-      required: [detail]
+      required:
+      - detail
       properties:
         detail:
           type: object
-          required: [type, title]
+          required:
+          - type
+          - title
           properties:
-            type: { type: string }
-            title: { type: string }
+            type:
+              type: string
+            title:
+              type: string
     PageMeta:
-      type: object
       properties:
-        limit: { type: integer }
-        offset: { type: integer }
-        total: { type: integer }
+        limit:
+          type: integer
+          title: Limit
+        offset:
+          type: integer
+          title: Offset
+        total:
+          type: integer
+          title: Total
+      type: object
+      required:
+      - limit
+      - offset
+      - total
+      title: PageMeta
     Machine:
       type: object
       properties:
-        machine_id: { type: string }
-        name: { type: string }
-        machine_type: { type: string }
-        zone: { type: string }
-        fog_id: { type: string }
+        machine_id:
+          type: string
+        name:
+          type: string
+        machine_type:
+          type: string
+        zone:
+          type: string
+        fog_id:
+          type: string
     MachinePage:
       type: object
       properties:
-        items: { type: array, items: { $ref: '#/components/schemas/Machine' } }
-        meta: { $ref: '#/components/schemas/PageMeta' }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Machine'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
     SensorData:
       type: object
       properties:
-        machine_id: { type: string }
-        zone: { type: string }
-        timestamp: { type: string, format: date-time }
-        temperature: { type: number }
-        vibration: { type: number }
-        speed: { type: number }
-        current: { type: number }
-        state: { type: string }
+        machine_id:
+          type: string
+        zone:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        temperature:
+          type: number
+        vibration:
+          type: number
+        speed:
+          type: number
+        current:
+          type: number
+        state:
+          type: string
     SensorDataPage:
       type: object
       properties:
-        items: { type: array, items: { $ref: '#/components/schemas/SensorData' } }
-        meta: { $ref: '#/components/schemas/PageMeta' }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SensorData'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
     Prediction:
       type: object
       properties:
-        machine_id: { type: string }
-        fog_id: { type: string }
-        timestamp: { type: string, format: date-time }
-        risk_score: { type: number }
-        anomaly: { type: boolean }
-        predicted_fault: { type: string }
-        severity: { type: string }
-        model_version: { type: string }
+        machine_id:
+          type: string
+        fog_id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        risk_score:
+          type: number
+        anomaly:
+          type: boolean
+        predicted_fault:
+          type: string
+        severity:
+          type: string
+        model_version:
+          type: string
     PredictionPage:
       type: object
       properties:
-        items: { type: array, items: { $ref: '#/components/schemas/Prediction' } }
-        meta: { $ref: '#/components/schemas/PageMeta' }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Prediction'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
     Alert:
       type: object
       properties:
-        alert_id: { type: string }
-        machine_id: { type: string }
-        fog_id: { type: string }
-        timestamp: { type: string, format: date-time }
-        type: { type: string }
-        severity: { type: string }
-        message: { type: string }
-        recommended_action: { type: string, nullable: true }
-        status: { type: string }
+        alert_id:
+          type: string
+        machine_id:
+          type: string
+        fog_id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        type:
+          type: string
+        severity:
+          type: string
+        message:
+          type: string
+        recommended_action:
+          type: string
+          nullable: true
+        status:
+          type: string
     AlertPage:
       type: object
       properties:
-        items: { type: array, items: { $ref: '#/components/schemas/Alert' } }
-        meta: { $ref: '#/components/schemas/PageMeta' }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Alert'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
     FogNode:
       type: object
       properties:
-        fog_id: { type: string }
-        zone: { type: string }
-        status: { type: string }
-        cpu_percent: { type: number }
-        ram_percent: { type: number }
-        queued_tasks: { type: integer }
-        active_tasks: { type: integer }
-        last_heartbeat: { type: string, format: date-time }
+        fog_id:
+          type: string
+        zone:
+          type: string
+        status:
+          type: string
+        cpu_percent:
+          type: number
+        ram_percent:
+          type: number
+        queued_tasks:
+          type: integer
+        active_tasks:
+          type: integer
+        last_heartbeat:
+          type: string
+          format: date-time
     FogNodeList:
       type: object
       properties:
-        items: { type: array, items: { $ref: '#/components/schemas/FogNode' } }
-        heartbeat_timeout_seconds: { type: integer }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FogNode'
+        heartbeat_timeout_seconds:
+          type: integer
     TaskEvent:
       type: object
       properties:
-        task_id: { type: string }
-        task_type: { type: string }
-        priority: { type: string }
-        critical: { type: boolean }
-        source_fog: { type: string }
-        destination_fog: { type: string, nullable: true }
-        status: { type: string }
-        created_at: { type: string, format: date-time }
-        completed_at: { type: string, format: date-time, nullable: true }
-        reason: { type: string, nullable: true }
+        task_id:
+          type: string
+        task_type:
+          type: string
+        priority:
+          type: string
+        critical:
+          type: boolean
+        source_fog:
+          type: string
+        destination_fog:
+          type: string
+          nullable: true
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        reason:
+          type: string
+          nullable: true
     TaskEventPage:
       type: object
       properties:
-        items: { type: array, items: { $ref: '#/components/schemas/TaskEvent' } }
-        meta: { $ref: '#/components/schemas/PageMeta' }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskEvent'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
     Kpi:
       type: object
       properties:
-        metric: { type: string }
-        scope: { type: string }
-        scope_value: { type: string }
-        bucket_start: { type: string, format: date-time }
-        bucket_end: { type: string, format: date-time }
-        value: { type: number }
-        sample_size: { type: integer }
+        metric:
+          type: string
+        scope:
+          type: string
+        scope_value:
+          type: string
+        bucket_start:
+          type: string
+          format: date-time
+        bucket_end:
+          type: string
+          format: date-time
+        value:
+          type: number
+        sample_size:
+          type: integer
     KpiList:
       type: object
       properties:
-        items: { type: array, items: { $ref: '#/components/schemas/Kpi' } }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Kpi'
+    Page_TaskEventRead_:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/TaskEventRead'
+          type: array
+          title: Items
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+      type: object
+      required:
+      - items
+      - meta
+      title: Page[TaskEventRead]
+    TaskEventRead:
+      properties:
+        id:
+          type: integer
+          title: Id
+        message_id:
+          type: string
+          title: Message Id
+        task_id:
+          type: string
+          format: uuid4
+          title: Task Id
+        task_type:
+          type: string
+          enum:
+          - ANOMALY_DETECTION
+          - FEATURE_EXTRACTION
+          - AGGREGATION
+          - REPORTING
+          - MODEL_RETRAIN
+          title: Task Type
+        priority:
+          type: string
+          enum:
+          - CRITICAL
+          - HIGH
+          - MEDIUM
+          - LOW
+          title: Priority
+        critical:
+          type: boolean
+          title: Critical
+        source_fog:
+          type: string
+          enum:
+          - FOG_A
+          - FOG_B
+          - FOG_C
+          title: Source Fog
+        destination_fog:
+          type: string
+          enum:
+          - FOG_A
+          - FOG_B
+          - FOG_C
+          - null
+          title: Destination Fog
+          nullable: true
+        status:
+          type: string
+          enum:
+          - CREATED
+          - QUEUED
+          - RUNNING
+          - MIGRATED
+          - COMPLETED
+          - FAILED
+          - RECOVERED
+          title: Status
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        occurred_at:
+          type: string
+          format: date-time
+          title: Occurred At
+          nullable: true
+        received_at:
+          type: string
+          format: date-time
+          title: Received At
+        completed_at:
+          type: string
+          format: date-time
+          title: Completed At
+          nullable: true
+        reason:
+          type: string
+          title: Reason
+          nullable: true
+      type: object
+      required:
+      - id
+      - message_id
+      - task_id
+      - task_type
+      - priority
+      - critical
+      - source_fog
+      - destination_fog
+      - status
+      - created_at
+      - occurred_at
+      - received_at
+      - completed_at
+      - reason
+      title: TaskEventRead
+    Page_FogHistoryRead_:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/FogHistoryRead'
+          type: array
+          title: Items
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+      type: object
+      required:
+      - items
+      - meta
+      title: Page[FogHistoryRead]
+    FogHistoryRead:
+      properties:
+        id:
+          type: integer
+          title: Id
+        message_id:
+          type: string
+          title: Message Id
+        fog_id:
+          type: string
+          enum:
+          - FOG_A
+          - FOG_B
+          - FOG_C
+          title: Fog Id
+        zone:
+          type: string
+          enum:
+          - A
+          - B
+          - C
+          title: Zone
+        observed_at:
+          type: string
+          format: date-time
+          title: Observed At
+        received_at:
+          type: string
+          format: date-time
+          title: Received At
+        status:
+          type: string
+          enum:
+          - ONLINE
+          - OVERLOADED
+          - OFFLINE
+          - RECOVERING
+          title: Status
+        cpu_percent:
+          type: number
+          title: Cpu Percent
+        ram_percent:
+          type: number
+          title: Ram Percent
+        queued_tasks:
+          type: integer
+          title: Queued Tasks
+        active_tasks:
+          type: integer
+          title: Active Tasks
+        record_type:
+          type: string
+          title: Record Type
+          default: HEARTBEAT
+          enum:
+          - HEARTBEAT
+      type: object
+      required:
+      - id
+      - message_id
+      - fog_id
+      - zone
+      - observed_at
+      - received_at
+      - status
+      - cpu_percent
+      - ram_percent
+      - queued_tasks
+      - active_tasks
+      title: FogHistoryRead
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    AlertRead:
+      properties:
+        id:
+          type: integer
+          title: Id
+        message_id:
+          type: string
+          title: Message Id
+        alert_id:
+          type: string
+          title: Alert Id
+        machine_id:
+          type: string
+          title: Machine Id
+        fog_id:
+          type: string
+          enum:
+          - FOG_A
+          - FOG_B
+          - FOG_C
+          title: Fog Id
+        timestamp:
+          type: string
+          format: date-time
+          title: Timestamp
+        received_at:
+          type: string
+          format: date-time
+          title: Received At
+        type:
+          type: string
+          title: Type
+        severity:
+          type: string
+          enum:
+          - NORMAL
+          - WARNING
+          - CRITICAL
+          title: Severity
+        message:
+          type: string
+          title: Message
+        recommended_action:
+          type: string
+          title: Recommended Action
+          nullable: true
+        status:
+          type: string
+          enum:
+          - OPEN
+          - ACKNOWLEDGED
+          - RESOLVED
+          title: Status
+        acknowledged_at:
+          type: string
+          format: date-time
+          title: Acknowledged At
+          nullable: true
+        acknowledged_by:
+          type: string
+          title: Acknowledged By
+          nullable: true
+        resolved_at:
+          type: string
+          format: date-time
+          title: Resolved At
+          nullable: true
+      type: object
+      required:
+      - id
+      - message_id
+      - alert_id
+      - machine_id
+      - fog_id
+      - timestamp
+      - received_at
+      - type
+      - severity
+      - message
+      - recommended_action
+      - status
+      - acknowledged_at
+      - acknowledged_by
+      - resolved_at
+      title: AlertRead
+    Page_TaskRead_:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/TaskRead'
+          type: array
+          title: Items
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+      type: object
+      required:
+      - items
+      - meta
+      title: Page[TaskRead]
+    MeasurementRead:
+      properties:
+        id:
+          type: integer
+          title: Id
+        message_id:
+          type: string
+          title: Message Id
+        machine_id:
+          type: string
+          title: Machine Id
+        zone:
+          type: string
+          enum:
+          - A
+          - B
+          - C
+          title: Zone
+        timestamp:
+          type: string
+          format: date-time
+          title: Timestamp
+        received_at:
+          type: string
+          format: date-time
+          title: Received At
+        temperature:
+          type: number
+          title: Temperature
+        vibration:
+          type: number
+          title: Vibration
+        speed:
+          type: number
+          title: Speed
+        current:
+          type: number
+          title: Current
+        pressure:
+          type: number
+          title: Pressure
+          nullable: true
+        power:
+          type: number
+          title: Power
+          nullable: true
+        frequency:
+          type: number
+          title: Frequency
+          nullable: true
+        state:
+          type: string
+          enum:
+          - RUNNING
+          - IDLE
+          - STOPPED
+          - FAULT
+          title: State
+      type: object
+      required:
+      - id
+      - message_id
+      - machine_id
+      - zone
+      - timestamp
+      - received_at
+      - temperature
+      - vibration
+      - speed
+      - current
+      - pressure
+      - power
+      - frequency
+      - state
+      title: MeasurementRead
+    Page_AlertRead_:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/AlertRead'
+          type: array
+          title: Items
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+      type: object
+      required:
+      - items
+      - meta
+      title: Page[AlertRead]
+    Page_PredictionRead_:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/PredictionRead'
+          type: array
+          title: Items
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+      type: object
+      required:
+      - items
+      - meta
+      title: Page[PredictionRead]
+    PredictionRead:
+      properties:
+        id:
+          type: integer
+          title: Id
+        message_id:
+          type: string
+          title: Message Id
+        machine_id:
+          type: string
+          title: Machine Id
+        fog_id:
+          type: string
+          enum:
+          - FOG_A
+          - FOG_B
+          - FOG_C
+          title: Fog Id
+        timestamp:
+          type: string
+          format: date-time
+          title: Timestamp
+        received_at:
+          type: string
+          format: date-time
+          title: Received At
+        risk_score:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Risk Score
+        anomaly:
+          type: boolean
+          title: Anomaly
+        predicted_fault:
+          type: string
+          title: Predicted Fault
+        severity:
+          type: string
+          enum:
+          - NORMAL
+          - WARNING
+          - CRITICAL
+          title: Severity
+        model_version:
+          type: string
+          title: Model Version
+      type: object
+      required:
+      - id
+      - message_id
+      - machine_id
+      - fog_id
+      - timestamp
+      - received_at
+      - risk_score
+      - anomaly
+      - predicted_fault
+      - severity
+      - model_version
+      title: PredictionRead
+    TaskRead:
+      properties:
+        task_id:
+          type: string
+          format: uuid4
+          title: Task Id
+        task_type:
+          type: string
+          enum:
+          - ANOMALY_DETECTION
+          - FEATURE_EXTRACTION
+          - AGGREGATION
+          - REPORTING
+          - MODEL_RETRAIN
+          title: Task Type
+        priority:
+          type: string
+          enum:
+          - CRITICAL
+          - HIGH
+          - MEDIUM
+          - LOW
+          title: Priority
+        critical:
+          type: boolean
+          title: Critical
+        origin_fog_id:
+          type: string
+          enum:
+          - FOG_A
+          - FOG_B
+          - FOG_C
+          - null
+          title: Origin Fog Id
+          nullable: true
+        current_fog_id:
+          type: string
+          enum:
+          - FOG_A
+          - FOG_B
+          - FOG_C
+          - null
+          title: Current Fog Id
+          nullable: true
+        machine_id:
+          type: string
+          title: Machine Id
+          nullable: true
+        status:
+          type: string
+          enum:
+          - CREATED
+          - QUEUED
+          - RUNNING
+          - MIGRATED
+          - COMPLETED
+          - FAILED
+          - RECOVERED
+          title: Status
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        started_at:
+          type: string
+          format: date-time
+          title: Started At
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          title: Completed At
+          nullable: true
+        last_event_at:
+          type: string
+          format: date-time
+          title: Last Event At
+          nullable: true
+        last_received_at:
+          type: string
+          format: date-time
+          title: Last Received At
+      type: object
+      required:
+      - task_id
+      - task_type
+      - priority
+      - critical
+      - origin_fog_id
+      - current_fog_id
+      - machine_id
+      - status
+      - created_at
+      - started_at
+      - completed_at
+      - last_event_at
+      - last_received_at
+      title: TaskRead
+    FogNodeRead:
+      properties:
+        fog_id:
+          type: string
+          enum:
+          - FOG_A
+          - FOG_B
+          - FOG_C
+          title: Fog Id
+        zone:
+          type: string
+          enum:
+          - A
+          - B
+          - C
+          title: Zone
+        status:
+          type: string
+          enum:
+          - ONLINE
+          - OVERLOADED
+          - OFFLINE
+          - RECOVERING
+          title: Status
+        cpu_percent:
+          type: number
+          title: Cpu Percent
+          nullable: true
+        ram_percent:
+          type: number
+          title: Ram Percent
+          nullable: true
+        queued_tasks:
+          type: integer
+          title: Queued Tasks
+          nullable: true
+        active_tasks:
+          type: integer
+          title: Active Tasks
+          nullable: true
+        last_heartbeat:
+          type: string
+          format: date-time
+          title: Last Heartbeat
+          nullable: true
+        last_received_at:
+          type: string
+          format: date-time
+          title: Last Received At
+          nullable: true
+        offline_since:
+          type: string
+          format: date-time
+          title: Offline Since
+          nullable: true
+        recovered_at:
+          type: string
+          format: date-time
+          title: Recovered At
+          nullable: true
+        heartbeat_age_seconds:
+          type: number
+          title: Heartbeat Age Seconds
+          nullable: true
+        heartbeat_stale:
+          type: boolean
+          title: Heartbeat Stale
+          nullable: true
+        heartbeat_received_age_seconds:
+          type: number
+          title: Heartbeat Received Age Seconds
+          nullable: true
+        supervision_status:
+          type: string
+          enum:
+          - UNKNOWN
+          - REACHABLE
+          - UNREACHABLE
+          title: Supervision Status
+          default: UNKNOWN
+        supervision_reason:
+          type: string
+          enum:
+          - NO_HEARTBEAT
+          - FRESH_HEARTBEAT
+          - HEARTBEAT_TIMEOUT
+          - REPORTED_OFFLINE
+          - CLOCK_SKEW
+          - MONITOR_GAP
+          title: Supervision Reason
+          default: NO_HEARTBEAT
+        supervision_since:
+          type: string
+          format: date-time
+          title: Supervision Since
+          nullable: true
+        supervision_checked_at:
+          type: string
+          format: date-time
+          title: Supervision Checked At
+          nullable: true
+        supervision_stale:
+          type: boolean
+          title: Supervision Stale
+          default: true
+        effective_supervision_status:
+          type: string
+          enum:
+          - UNKNOWN
+          - REACHABLE
+          - UNREACHABLE
+          title: Effective Supervision Status
+          default: UNKNOWN
+      type: object
+      required:
+      - fog_id
+      - zone
+      - status
+      - cpu_percent
+      - ram_percent
+      - queued_tasks
+      - active_tasks
+      - last_heartbeat
+      - last_received_at
+      - offline_since
+      - recovered_at
+      title: FogNodeRead
+    MachineRead:
+      properties:
+        machine_id:
+          type: string
+          title: Machine Id
+        name:
+          type: string
+          title: Name
+        machine_type:
+          type: string
+          title: Machine Type
+        zone:
+          type: string
+          enum:
+          - A
+          - B
+          - C
+          title: Zone
+        fog_id:
+          type: string
+          enum:
+          - FOG_A
+          - FOG_B
+          - FOG_C
+          title: Fog Id
+      type: object
+      required:
+      - machine_id
+      - name
+      - machine_type
+      - zone
+      - fog_id
+      title: MachineRead
+    Page_MeasurementRead_:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/MeasurementRead'
+          type: array
+          title: Items
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+      type: object
+      required:
+      - items
+      - meta
+      title: Page[MeasurementRead]
+    ReadProblem:
+      properties:
+        type:
+          type: string
+          title: Type
+        title:
+          type: string
+          title: Title
+        status:
+          type: integer
+          title: Status
+        detail:
+          type: string
+          title: Detail
+        instance:
+          type: string
+          title: Instance
+      type: object
+      required:
+      - type
+      - title
+      - status
+      - detail
+      - instance
+      title: ReadProblem
+    Page_MachineRead_:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/MachineRead'
+          type: array
+          title: Items
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+      type: object
+      required:
+      - items
+      - meta
+      title: Page[MachineRead]
+    FogNodePage:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/FogNodeRead'
+          type: array
+          title: Items
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+        as_of:
+          type: string
+          format: date-time
+          title: As Of
+        heartbeat_timeout_seconds:
+          type: integer
+          title: Heartbeat Timeout Seconds
+        supervision_gap_seconds:
+          type: integer
+          title: Supervision Gap Seconds
+          default: 30
+      type: object
+      required:
+      - items
+      - meta
+      - as_of
+      - heartbeat_timeout_seconds
+      title: FogNodePage
+    KpiPage:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/KpiRead'
+          type: array
+          title: Items
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+        from_:
+          type: string
+          format: date-time
+          title: From
+        to:
+          type: string
+          format: date-time
+          title: To
+        unavailable_metrics:
+          additionalProperties:
+            type: string
+          type: object
+          title: Unavailable Metrics
+        empty_reason:
+          type: string
+          title: Empty Reason
+          nullable: true
+        note:
+          type: string
+          title: Note
+      type: object
+      required:
+      - items
+      - meta
+      - from_
+      - to
+      - unavailable_metrics
+      - empty_reason
+      - note
+      title: KpiPage
+    KpiRead:
+      properties:
+        metric:
+          type: string
+          title: Metric
+        scope:
+          type: string
+          enum:
+          - plant
+          - zone
+          - machine
+          - fog
+          - model
+          title: Scope
+        scope_value:
+          type: string
+          title: Scope Value
+        bucket_start:
+          type: string
+          format: date-time
+          title: Bucket Start
+        bucket_end:
+          type: string
+          format: date-time
+          title: Bucket End
+        value:
+          type: number
+          title: Value
+        sample_size:
+          type: integer
+          title: Sample Size
+        computed_at:
+          type: string
+          format: date-time
+          title: Computed At
+        unit:
+          type: string
+          title: Unit
+          readOnly: true
+        time_basis:
+          type: string
+          title: Time Basis
+          readOnly: true
+        quality:
+          type: string
+          enum:
+          - LOW_SAMPLE
+          - OBSERVED
+          title: Quality
+          readOnly: true
+        stale:
+          type: boolean
+          title: Stale
+          readOnly: true
+      type: object
+      required:
+      - metric
+      - scope
+      - scope_value
+      - bucket_start
+      - bucket_end
+      - value
+      - sample_size
+      - computed_at
+      - unit
+      - time_basis
+      - quality
+      - stale
+      title: KpiRead
+    Page_FogSupervisionRead_:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/FogSupervisionRead'
+          type: array
+          title: Items
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+      type: object
+      required:
+      - items
+      - meta
+      title: Page[FogSupervisionRead]
+    FogSupervisionRead:
+      properties:
+        id:
+          type: integer
+          title: Id
+        message_id:
+          type: string
+          title: Message Id
+        fog_id:
+          type: string
+          enum:
+          - FOG_A
+          - FOG_B
+          - FOG_C
+          title: Fog Id
+        zone:
+          type: string
+          enum:
+          - A
+          - B
+          - C
+          title: Zone
+        record_type:
+          type: string
+          title: Record Type
+          enum:
+          - SUPERVISION
+        observed_at:
+          type: string
+          format: date-time
+          title: Observed At
+        received_at:
+          type: string
+          format: date-time
+          title: Received At
+        supervision_status:
+          type: string
+          enum:
+          - UNKNOWN
+          - REACHABLE
+          - UNREACHABLE
+          title: Supervision Status
+        previous_supervision_status:
+          type: string
+          enum:
+          - UNKNOWN
+          - REACHABLE
+          - UNREACHABLE
+          title: Previous Supervision Status
+        supervision_reason:
+          type: string
+          enum:
+          - NO_HEARTBEAT
+          - FRESH_HEARTBEAT
+          - HEARTBEAT_TIMEOUT
+          - REPORTED_OFFLINE
+          - CLOCK_SKEW
+          - MONITOR_GAP
+          title: Supervision Reason
+        evidence_heartbeat_at:
+          type: string
+          format: date-time
+          title: Evidence Heartbeat At
+          nullable: true
+        evidence_received_at:
+          type: string
+          format: date-time
+          title: Evidence Received At
+          nullable: true
+        timeout_seconds:
+          type: integer
+          title: Timeout Seconds
+        gap_start:
+          type: string
+          format: date-time
+          title: Gap Start
+          nullable: true
+        gap_end:
+          type: string
+          format: date-time
+          title: Gap End
+          nullable: true
+      type: object
+      required:
+      - id
+      - message_id
+      - fog_id
+      - zone
+      - record_type
+      - observed_at
+      - received_at
+      - supervision_status
+      - previous_supervision_status
+      - supervision_reason
+      - evidence_heartbeat_at
+      - evidence_received_at
+      - timeout_seconds
+      - gap_start
+      - gap_end
+      title: FogSupervisionRead
