@@ -1,0 +1,34 @@
+
+{
+  "source": "mock",
+  "predictions": [
+    {
+      "machine_id": "M01",
+      "timestamp": "2026-11-01T10:00:00Z",
+      "risk_score": 5,
+      "anomaly_detected": false,
+      "predicted_fault": null
+    },
+    {
+      "machine_id": "M03",
+      "timestamp": "2026-11-01T10:00:00Z",
+      "risk_score": 45,
+      "anomaly_detected": true,
+      "predicted_fault": "Usure des roulements"
+    },
+    {
+      "machine_id": "M06",
+      "timestamp": "2026-11-01T10:00:00Z",
+      "risk_score": 92,
+      "anomaly_detected": true,
+      "predicted_fault": "Surchauffe"
+    },
+    {
+      "machine_id": "M10",
+      "timestamp": "2026-11-01T10:00:00Z",
+      "risk_score": 65,
+      "anomaly_detected": true,
+      "predicted_fault": "Déséquilibre mécanique"
+    }
+  ]
+}
