@@ -1,0 +1,16 @@
+{
+  "model_version": "hybrid-2026-11-18",
+  "created": "2026-11-18T21:14:28+00:00",
+  "seed": 42,
+  "n_features": 39,
+  "iforest_calibration": {
+    "threshold": 0.5383191191298754,
+    "scale": 0.016349995549692214
+  },
+  "validation_on_unseen_machines": {
+    "precision": 0.9831093302167683,
+    "recall": 0.9985867721876767,
+    "f1": 0.9907876102472062,
+    "false_alarm_rate": 0.014968804715050184
+  }
+}
