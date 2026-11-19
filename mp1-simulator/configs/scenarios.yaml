@@ -1,0 +1,45 @@
+sample_interval_s: 1                  # contract: 1 measurement/s per machine
+start_time: "2026-11-01T00:00:00Z"    # must be in the past (contract: timestamp not in the future)
+label_threshold: 0.2                  # severity from which a sample is labelled "faulty"
+
+# 12 machines, 4 per zone. Zones must match the contract (M01-04=A, M05-08=B, M09-12=C).
+machines:
+  - {id: M01, zone: A, type: motor}
+  - {id: M02, zone: A, type: pump}
+  - {id: M03, zone: A, type: compressor}
+  - {id: M04, zone: A, type: conveyor}
+  - {id: M05, zone: B, type: motor}
+  - {id: M06, zone: B, type: pump}
+  - {id: M07, zone: B, type: compressor}
+  - {id: M08, zone: B, type: conveyor}
+  - {id: M09, zone: C, type: motor}
+  - {id: M10, zone: C, type: pump}
+  - {id: M11, zone: C, type: compressor}
+  - {id: M12, zone: C, type: conveyor}
+
+datasets:
+  # Training set: 4 h, 8 faulty machines (2 per fault type)
+  train:
+    seed: 42
+    duration_s: 14400
+    faults:
+      - {machine: M02, type: BEARING_WEAR,        start_s: 3600, duration_s: 9000}
+      - {machine: M09, type: BEARING_WEAR,        start_s: 1800, duration_s: 10800}
+      - {machine: M03, type: OVERHEATING,         start_s: 4500, duration_s: 5400}
+      - {machine: M10, type: OVERHEATING,         start_s: 3600, duration_s: 4500}
+      - {machine: M05, type: IMBALANCE,           start_s: 2700, duration_s: 3600}
+      - {machine: M11, type: IMBALANCE,           start_s: 5400, duration_s: 4500}
+      - {machine: M07, type: ELECTRICAL_OVERLOAD, start_s: 5400, duration_s: 5400}
+      - {machine: M04, type: ELECTRICAL_OVERLOAD, start_s: 2700, duration_s: 6300}
+
+  # Test set: different seed, machines and timings (never used for training)
+  test:
+    seed: 7
+    duration_s: 14400
+    faults:
+      - {machine: M01, type: OVERHEATING,         start_s: 3600, duration_s: 5400}
+      - {machine: M03, type: BEARING_WEAR,        start_s: 2700, duration_s: 9000}
+      - {machine: M06, type: IMBALANCE,           start_s: 4500, duration_s: 3600}
+      - {machine: M08, type: ELECTRICAL_OVERLOAD, start_s: 3600, duration_s: 5400}
+      - {machine: M10, type: BEARING_WEAR,        start_s: 1800, duration_s: 10800}
+      - {machine: M12, type: IMBALANCE,           start_s: 5400, duration_s: 3600}
