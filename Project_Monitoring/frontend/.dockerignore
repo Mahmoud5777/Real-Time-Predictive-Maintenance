@@ -1,0 +1,17 @@
+node_modules
+dist
+dist-ssr
+.git
+.gitignore
+.dockerignore
+*.log
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+Dockerfile*
+docker-compose*.yml
+nginx*.conf.bak
+README.md
+.env.local
+.env.*.local

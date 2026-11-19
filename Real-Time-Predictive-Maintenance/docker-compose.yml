@@ -1,0 +1,98 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mp2-mosquitto
+    restart: unless-stopped
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    networks:
+      - mp2-network
+
+  fog-a:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mp2-predictive-maintenance:latest
+    container_name: mp2-fog-a
+    restart: unless-stopped
+    command: uvicorn fog_nodes.fog_a.main:app --host 0.0.0.0 --port 8001
+    ports:
+      - "8101:8001"
+    environment:
+      - MQTT_BROKER_HOST=mosquitto
+      - MQTT_BROKER_PORT=1883
+      - FOG_FOG_ID=fog-a
+      - FOG_ZONE=A
+      - FOG_PORT=8001
+      - PYTHONPATH=/app
+    networks:
+      - mp2-network
+
+  fog-b:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mp2-predictive-maintenance:latest
+    container_name: mp2-fog-b
+    restart: unless-stopped
+    command: uvicorn fog_nodes.fog_b.main:app --host 0.0.0.0 --port 8002
+    ports:
+      - "8102:8002"
+    environment:
+      - MQTT_BROKER_HOST=mosquitto
+      - MQTT_BROKER_PORT=1883
+      - FOG_FOG_ID=fog-b
+      - FOG_ZONE=B
+      - FOG_PORT=8002
+      - PYTHONPATH=/app
+    networks:
+      - mp2-network
+
+  fog-c:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mp2-predictive-maintenance:latest
+    container_name: mp2-fog-c
+    restart: unless-stopped
+    command: uvicorn fog_nodes.fog_c.main:app --host 0.0.0.0 --port 8003
+    ports:
+      - "8103:8003"
+    environment:
+      - MQTT_BROKER_HOST=mosquitto
+      - MQTT_BROKER_PORT=1883
+      - FOG_FOG_ID=fog-c
+      - FOG_ZONE=C
+      - FOG_PORT=8003
+      - PYTHONPATH=/app
+    networks:
+      - mp2-network
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mp2-predictive-maintenance:latest
+    container_name: mp2-scheduler
+    restart: unless-stopped
+    command: uvicorn scheduler.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8100:8000"
+    environment:
+      - MQTT_BROKER_HOST=mosquitto
+      - MQTT_BROKER_PORT=1883
+      - FOG_A_URL=http://fog-a:8001
+      - FOG_B_URL=http://fog-b:8002
+      - FOG_C_URL=http://fog-c:8003
+      - PYTHONPATH=/app
+    depends_on:
+      - fog-a
+      - fog-b
+      - fog-c
+    networks:
+      - mp2-network
+
+networks:
+  mp2-network:
+    name: mp2-network
+    driver: bridge

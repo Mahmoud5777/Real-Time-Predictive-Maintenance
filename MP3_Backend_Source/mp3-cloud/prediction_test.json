@@ -1,0 +1,11 @@
+{
+  "message_id": "TEST-PRED-M01-001",
+  "machine_id": "M01",
+  "fog_id": "FOG_A",
+  "timestamp": "2026-11-15T20:00:00Z",
+  "risk_score": 0.82,
+  "anomaly": true,
+  "predicted_fault": "BEARING_WEAR",
+  "severity": "WARNING",
+  "model_version": "test-1.0"
+}

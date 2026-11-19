@@ -1,0 +1,114 @@
+# Laboratoire MP3 uniquement : aucun .env ni volume de la base fog_cloud.
+x-lab-env: &lab-env
+  DATABASE_URL: postgresql+asyncpg://lab:lab@db:5432/fog_lab
+  MQTT_HOST: mosquitto
+  MQTT_PORT: "1883"
+  MQTT_CLIENT_ID: mp3-lab-ingest
+  INGEST_TOKEN: mp3-lab-token
+  MQTT_METRICS_HOST: 0.0.0.0
+  KPI_METRICS_HOST: 0.0.0.0
+  SUPERVISION_METRICS_HOST: 0.0.0.0
+  RETENTION_METRICS_HOST: 0.0.0.0
+  RAW_RETENTION_DAYS: "7"
+  # Suppression active uniquement dans ce laboratoire jetable.
+  RETENTION_DRY_RUN: "false"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: lab
+      POSTGRES_PASSWORD: lab
+      POSTGRES_DB: fog_lab
+    volumes:
+      - lab_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lab -d fog_lab"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - "127.0.0.1:${MP3_LAB_MQTT_PORT:-1884}:1883"
+    volumes:
+      - ../infra/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - lab_mqttdata:/mosquitto/data
+  api:
+    image: mp3-cloud-lab:local
+    build: .
+    environment: *lab-env
+    ports:
+      - "127.0.0.1:${MP3_LAB_API_PORT:-8100}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+    command: sh -c "alembic upgrade head && python -m scripts.init_catalogue && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/machines?limit=1',timeout=3)"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+  ingest:
+    image: mp3-cloud-lab:local
+    environment: *lab-env
+    command: python -m app.ingest.worker
+    ports:
+      - "127.0.0.1:${MP3_LAB_INGEST_PORT:-8101}:8001"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; d=urllib.request.urlopen('http://127.0.0.1:8001/metrics',timeout=2).read(); assert b'fog_cloud_mqtt_ready 1.0' in d"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    stop_grace_period: 20s
+  analytics:
+    image: mp3-cloud-lab:local
+    environment: *lab-env
+    command: python -m app.analytics.worker
+    ports:
+      - "127.0.0.1:${MP3_LAB_ANALYTICS_PORT:-8102}:8002"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; d=urllib.request.urlopen('http://127.0.0.1:8002/metrics',timeout=2).read(); assert b'fog_cloud_kpi_ready 1.0' in d"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  supervision:
+    image: mp3-cloud-lab:local
+    environment: *lab-env
+    command: python -m app.supervision.worker
+    ports:
+      - "127.0.0.1:${MP3_LAB_SUPERVISION_PORT:-8103}:8003"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; d=urllib.request.urlopen('http://127.0.0.1:8003/metrics',timeout=2).read(); assert b'fog_cloud_supervision_ready 1.0' in d"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  retention:
+    image: mp3-cloud-lab:local
+    environment: *lab-env
+    command: python -m app.retention.worker
+    ports:
+      - "127.0.0.1:${MP3_LAB_RETENTION_PORT:-8104}:8004"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; d=urllib.request.urlopen('http://127.0.0.1:8004/metrics',timeout=2).read(); assert b'fog_cloud_retention_ready 1.0' in d"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  lab_pgdata:
+  lab_mqttdata:

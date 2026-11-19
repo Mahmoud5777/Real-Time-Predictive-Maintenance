@@ -1,0 +1,1 @@
+{"kind":"alert","payload":{"alert_id":"ALR-1","machine_id":"M01","fog_id":"FOG_A","timestamp":"2026-10-30T14:25:32Z","type":"SENSOR_LOST","severity":"WARNING","message":"no data from M01"}}

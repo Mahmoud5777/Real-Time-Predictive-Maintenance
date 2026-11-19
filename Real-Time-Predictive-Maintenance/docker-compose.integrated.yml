@@ -1,0 +1,57 @@
+# Standalone:
+#   docker compose -f docker-compose.yml up -d
+#
+# Integrated with the existing MP3 mp3-cloud_default network:
+#   docker compose -f docker-compose.yml -f docker-compose.integrated.yml up -d
+services:
+  mosquitto:
+    profiles:
+      - integrated-disabled
+
+  fog-a:
+    environment:
+      MQTT_BROKER_HOST: mosquitto
+      MQTT_BROKER_PORT: "1883"
+    volumes:
+      - ./mqtt/mp3_adapter.py:/app/mqtt/mp3_adapter.py:ro
+    networks:
+      - mp2-network
+      - mp3-cloud_default
+
+  fog-b:
+    environment:
+      MQTT_BROKER_HOST: mosquitto
+      MQTT_BROKER_PORT: "1883"
+    volumes:
+      - ./mqtt/mp3_adapter.py:/app/mqtt/mp3_adapter.py:ro
+    networks:
+      - mp2-network
+      - mp3-cloud_default
+
+  fog-c:
+    environment:
+      MQTT_BROKER_HOST: mosquitto
+      MQTT_BROKER_PORT: "1883"
+    volumes:
+      - ./mqtt/mp3_adapter.py:/app/mqtt/mp3_adapter.py:ro
+    networks:
+      - mp2-network
+      - mp3-cloud_default
+
+  scheduler:
+    environment:
+      MQTT_BROKER_HOST: mosquitto
+      MQTT_BROKER_PORT: "1883"
+    volumes:
+      - ./mqtt/mp3_adapter.py:/app/mqtt/mp3_adapter.py:ro
+    networks:
+      - mp2-network
+      - mp3-cloud_default
+
+networks:
+  mp2-network:
+    name: mp2-network
+    driver: bridge
+  mp3-cloud_default:
+    name: mp3-cloud_default
+    external: true

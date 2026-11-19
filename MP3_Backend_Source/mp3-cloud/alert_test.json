@@ -1,0 +1,11 @@
+{
+  "message_id": "TEST-ALERT-M01-001",
+  "alert_id": "ALERT-M01-001",
+  "machine_id": "M01",
+  "fog_id": "FOG_A",
+  "timestamp": "2026-11-15T20:00:00Z",
+  "type": "PREDICTED_FAILURE",
+  "severity": "WARNING",
+  "message": "Risque de degradation du roulement detecte sur M01.",
+  "recommended_action": "Inspecter le roulement de la machine M01."
+}

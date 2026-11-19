@@ -1,0 +1,47 @@
+﻿# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Node.js
+node_modules/
+dist/
+
+# Logs
+*.log
+
+# Databases and local data
+*.sqlite
+*.sqlite3
+*.db
+
+# IDE and operating system
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Temporary and generated files
+*.tmp
+*.bak
+
+# Local Git history backups
+.git-history-backup/
+
+# Python test cache
+.pytest_cache/
+
+# Personal screenshots at repository root
+/*.jpg
+/*.jpeg
+
+# MP3 backend is maintained in MP3_Backend_Source
+MP1_Industrial_Simulation/mp3-cloud/

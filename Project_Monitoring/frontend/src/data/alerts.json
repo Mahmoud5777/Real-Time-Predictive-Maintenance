@@ -1,0 +1,36 @@
+
+{
+  "source": "mock",
+  "alerts": [
+    {
+      "alert_id": "A001",
+      "machine_id": "M03",
+      "zone": "A",
+      "severity": "warning",
+      "title": "Vibration anormale",
+      "description": "Niveau de vibration supérieur au fonctionnement habituel.",
+      "timestamp": "2026-11-01T10:00:00Z",
+      "status": "open"
+    },
+    {
+      "alert_id": "A002",
+      "machine_id": "M06",
+      "zone": "B",
+      "severity": "critical",
+      "title": "Surchauffe détectée",
+      "description": "Température élevée de 105,8 °C et risque de panne important.",
+      "timestamp": "2026-11-01T10:00:00Z",
+      "status": "open"
+    },
+    {
+      "alert_id": "A003",
+      "machine_id": "M10",
+      "zone": "C",
+      "severity": "warning",
+      "title": "Déséquilibre mécanique suspecté",
+      "description": "Comportement vibratoire inhabituel détecté.",
+      "timestamp": "2026-11-01T10:00:00Z",
+      "status": "acknowledged"
+    }
+  ]
+}

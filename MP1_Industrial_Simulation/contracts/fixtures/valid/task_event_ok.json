@@ -1,0 +1,1 @@
+{"kind":"task_event","payload":{"message_id":"01J9ZK7Q9F3T2W8R1X0YABCDEF4","task_id":"b3f1c2d4-6a11-4f3a-9c2e-7d5b1a0e9f42","task_type":"AGGREGATION","priority":"MEDIUM","critical":false,"source_fog":"FOG_A","destination_fog":"FOG_B","status":"MIGRATED","created_at":"2026-10-30T14:25:28Z","reason":"CPU > 85% on FOG_A"}}

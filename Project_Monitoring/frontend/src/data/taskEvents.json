@@ -1,0 +1,36 @@
+
+{
+  "source": "mock",
+  "task_events": [
+    {
+      "event_id": "E001",
+      "task_id": "TASK-101",
+      "source_node": "Fog-A",
+      "destination_node": "Fog-B",
+      "priority": "low",
+      "reason": "Surcharge du processeur sur Fog-A",
+      "status": "completed",
+      "timestamp": "2026-11-01T10:00:00Z"
+    },
+    {
+      "event_id": "E002",
+      "task_id": "TASK-102",
+      "source_node": "Fog-A",
+      "destination_node": "Fog-C",
+      "priority": "medium",
+      "reason": "Équilibrage de charge",
+      "status": "in_progress",
+      "timestamp": "2026-11-01T10:01:00Z"
+    },
+    {
+      "event_id": "E003",
+      "task_id": "TASK-103",
+      "source_node": "Fog-B",
+      "destination_node": null,
+      "priority": "critical",
+      "reason": "Tâche critique conservée localement",
+      "status": "local",
+      "timestamp": "2026-11-01T10:02:00Z"
+    }
+  ]
+}

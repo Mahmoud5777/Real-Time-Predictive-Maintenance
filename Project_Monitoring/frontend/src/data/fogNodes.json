@@ -1,0 +1,36 @@
+
+{
+  "source": "mock",
+  "fog_nodes": [
+    {
+      "node_id": "Fog-A",
+      "zone": "A",
+      "status": "online",
+      "cpu_usage": 95,
+      "ram_usage": 82,
+      "queue_length": 12,
+      "active_tasks": 8,
+      "last_heartbeat": "2026-11-01T10:00:00Z"
+    },
+    {
+      "node_id": "Fog-B",
+      "zone": "B",
+      "status": "online",
+      "cpu_usage": 42,
+      "ram_usage": 55,
+      "queue_length": 3,
+      "active_tasks": 5,
+      "last_heartbeat": "2026-11-01T10:00:00Z"
+    },
+    {
+      "node_id": "Fog-C",
+      "zone": "C",
+      "status": "online",
+      "cpu_usage": 28,
+      "ram_usage": 40,
+      "queue_length": 2,
+      "active_tasks": 4,
+      "last_heartbeat": "2026-11-01T10:00:00Z"
+    }
+  ]
+}

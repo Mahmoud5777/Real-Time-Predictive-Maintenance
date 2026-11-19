@@ -1,0 +1,11 @@
+{
+    "zone":  "A",
+    "message_id":  "TEST-HEARTBEAT-FOGA-REG-6",
+    "queued_tasks":  2,
+    "fog_id":  "FOG_A",
+    "cpu_percent":  35.5,
+    "active_tasks":  3,
+    "ram_percent":  48.2,
+    "status":  "ONLINE",
+    "last_heartbeat":  "2026-11-15T21:07:13Z"
+}

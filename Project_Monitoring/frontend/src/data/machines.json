@@ -1,0 +1,102 @@
+
+{
+  "source": "mock",
+  "machines": [
+    {
+      "machine_id": "M01",
+      "name": "Moteur A1",
+      "machine_type": "Moteur électrique",
+      "zone": "A",
+      "fog_id": "Fog-A",
+      "status": "operational"
+    },
+    {
+      "machine_id": "M02",
+      "name": "Pompe A1",
+      "machine_type": "Pompe",
+      "zone": "A",
+      "fog_id": "Fog-A",
+      "status": "operational"
+    },
+    {
+      "machine_id": "M03",
+      "name": "Compresseur A1",
+      "machine_type": "Compresseur",
+      "zone": "A",
+      "fog_id": "Fog-A",
+      "status": "warning"
+    },
+    {
+      "machine_id": "M04",
+      "name": "Ventilateur industriel A1",
+      "machine_type": "Ventilateur industriel",
+      "zone": "A",
+      "fog_id": "Fog-A",
+      "status": "operational"
+    },
+    {
+      "machine_id": "M05",
+      "name": "Moteur B1",
+      "machine_type": "Moteur électrique",
+      "zone": "B",
+      "fog_id": "Fog-B",
+      "status": "operational"
+    },
+    {
+      "machine_id": "M06",
+      "name": "Pompe B1",
+      "machine_type": "Pompe",
+      "zone": "B",
+      "fog_id": "Fog-B",
+      "status": "critical"
+    },
+    {
+      "machine_id": "M07",
+      "name": "Convoyeur B1",
+      "machine_type": "Convoyeur",
+      "zone": "B",
+      "fog_id": "Fog-B",
+      "status": "operational"
+    },
+    {
+      "machine_id": "M08",
+      "name": "Machine CNC B1",
+      "machine_type": "Machine CNC",
+      "zone": "B",
+      "fog_id": "Fog-B",
+      "status": "operational"
+    },
+    {
+      "machine_id": "M09",
+      "name": "Moteur C1",
+      "machine_type": "Moteur électrique",
+      "zone": "C",
+      "fog_id": "Fog-C",
+      "status": "operational"
+    },
+    {
+      "machine_id": "M10",
+      "name": "Pompe C1",
+      "machine_type": "Pompe",
+      "zone": "C",
+      "fog_id": "Fog-C",
+      "status": "warning"
+    },
+    {
+      "machine_id": "M11",
+      "name": "Ventilateur industriel C1",
+      "machine_type": "Ventilateur industriel",
+      "zone": "C",
+      "fog_id": "Fog-C",
+      "status": "operational"
+    },
+    {
+      "machine_id": "M12",
+      "name": "Compresseur C1",
+      "machine_type": "Compresseur",
+      "zone": "C",
+      "fog_id": "Fog-C",
+      "status": "operational"
+    }
+  ]
+}

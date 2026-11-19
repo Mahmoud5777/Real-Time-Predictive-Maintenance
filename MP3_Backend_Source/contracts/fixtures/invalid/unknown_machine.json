@@ -1,0 +1,1 @@
+{"kind":"prediction","payload":{"message_id":"01J9ZK7Q9F3T2W8R1X0YABCDEF7","machine_id":"M13","fog_id":"FOG_A","timestamp":"2026-10-30T14:25:31Z","risk_score":0.4,"anomaly":false,"predicted_fault":"NONE","severity":"NORMAL","model_version":"v1"}}

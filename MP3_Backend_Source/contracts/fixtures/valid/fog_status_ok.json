@@ -1,0 +1,1 @@
+{"kind":"fog_status","payload":{"message_id":"01J9ZK7Q9F3T2W8R1X0YABCDEF3","fog_id":"FOG_A","zone":"A","status":"ONLINE","cpu_percent":63.4,"ram_percent":48.1,"queued_tasks":12,"active_tasks":5,"last_heartbeat":"2026-10-30T14:25:30Z"}}
