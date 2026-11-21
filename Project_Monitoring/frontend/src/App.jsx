@@ -38,6 +38,20 @@ function App() {
         const data = await getDashboardData();
         if (!active) return;
         setDashboardData(data);
+        setSelectedMachineId((currentMachineId) => {
+          const availableMachines = data?.machines ?? [];
+
+          if (
+            availableMachines.length > 0 &&
+            !availableMachines.some(
+              (machine) => machine.machine_id === currentMachineId
+            )
+          ) {
+            return availableMachines[0].machine_id;
+          }
+
+          return currentMachineId;
+        });
         setLastUpdated(new Date());
         setError(null);
       } catch (err) {
@@ -57,19 +71,6 @@ function App() {
     };
   }, []);
 
-  // Sélection automatique de la première machine disponible
-  useEffect(() => {
-    const availableMachines = dashboardData?.machines ?? [];
-
-    if (
-      availableMachines.length > 0 &&
-      !availableMachines.some(
-        (machine) => machine.machine_id === selectedMachineId
-      )
-    ) {
-      setSelectedMachineId(availableMachines[0].machine_id);
-    }
-  }, [dashboardData, selectedMachineId]);
 
 
   // Affichage pendant le chargement

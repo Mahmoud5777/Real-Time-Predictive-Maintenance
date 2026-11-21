@@ -1,5 +1,17 @@
 
+import { useEffect, useState } from "react";
+
 function Header({ activePage, connectionError, lastUpdated }) {
+  const [currentDate, setCurrentDate] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setCurrentDate(new Date());
+    }, 15_000);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
   const pageTitles = {
     overview: {
       title: "Vue d'ensemble",
@@ -43,7 +55,7 @@ function Header({ activePage, connectionError, lastUpdated }) {
         </div>
 
         <div className="header-date">
-          {new Date().toLocaleDateString("fr-FR", {
+          {currentDate.toLocaleDateString("fr-FR", {
             day: "2-digit",
             month: "short",
             year: "numeric",
