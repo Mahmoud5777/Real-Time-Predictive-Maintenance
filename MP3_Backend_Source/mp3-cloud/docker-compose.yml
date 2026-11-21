@@ -1,6 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-fog}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fog}
@@ -17,6 +18,7 @@ services:
 
   mosquitto:
     image: eclipse-mosquitto:2
+    restart: unless-stopped
     ports:
       - "1883:1883"
     volumes:
@@ -25,6 +27,7 @@ services:
 
   api:
     build: .
+    restart: unless-stopped
     env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-fog}:${POSTGRES_PASSWORD:-fog}@db:5432/${POSTGRES_DB:-fog_cloud}
