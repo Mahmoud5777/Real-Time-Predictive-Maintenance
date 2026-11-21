@@ -36,10 +36,10 @@ function FogNodePanel({ nodes }) {
   };
 
   const statusLabels = {
-    online: "En ligne",
-    offline: "Hors ligne",
-    overloaded: "Surchargé",
-    recovering: "En récupération",
+    online: "Online",
+    warning: "Warning",
+    offline: "Offline",
+    recovering: "Recovering",
   };
 
   const supervisionStatusLabels = {
@@ -122,6 +122,18 @@ function FogNodePanel({ nodes }) {
               <div className="fog-heartbeat">
                 Dernier signal : {formatDate(heartbeat)}
               </div>
+
+              {node.offline_since && (
+                <div className="fog-heartbeat">
+                  Indisponible depuis : {formatDate(node.offline_since)}
+                </div>
+              )}
+
+              {node.recovered_at && (
+                <div className="fog-heartbeat">
+                  Dernière récupération : {formatDate(node.recovered_at)}
+                </div>
+              )}
 
               {node.effective_supervision_status && (
                 <div className="fog-heartbeat">

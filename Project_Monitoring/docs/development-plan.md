@@ -4,7 +4,7 @@
 - Define the global architecture.
 - Prepare the frontend structure.
 - Document API requirements.
-- Create representative mock data.
+- Define representative payloads from the MP3 API contracts.
 
 ## Week 2 — React Dashboard
 - Build the main layout.

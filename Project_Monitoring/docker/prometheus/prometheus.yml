@@ -1,0 +1,93 @@
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: mp3-api
+    static_configs:
+      - targets: ["api:8000"]
+
+  - job_name: mp3-workers
+    static_configs:
+      - targets:
+          - "ingest:8001"
+          - "analytics:8002"
+          - "supervision:8003"
+          - "retention:8004"
+
+  - job_name: mp2-scheduler
+    static_configs:
+      - targets: ["scheduler:8000"]
+
+  - job_name: mp2-fog-nodes
+    static_configs:
+      - targets:
+          - "fog-a:8001"
+          - "fog-b:8002"
+          - "fog-c:8003"
+
+  - job_name: mp4-blackbox-exporter
+    static_configs:
+      - targets: ["blackbox-exporter:9115"]
+
+  - job_name: mp4-cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]
+
+  - job_name: http-probes
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets: ["http://api:8000/healthz"]
+        labels:
+          service: mp3-api-health
+      - targets: ["http://api:8000/api/v1/machines?limit=1"]
+        labels:
+          service: mp3-api-route
+      - targets: ["http://mp4-dashboard-api:80/healthz"]
+        labels:
+          service: mp4-dashboard-health
+      - targets: ["http://mp4-dashboard-api:80/api/v1/machines?limit=1"]
+        labels:
+          service: mp4-dashboard-api-proxy
+      - targets: ["http://scheduler:8000/health"]
+        labels:
+          service: mp2-scheduler-health
+      - targets: ["http://fog-a:8001/health"]
+        labels:
+          service: mp2-fog-a-health
+      - targets: ["http://fog-b:8002/health"]
+        labels:
+          service: mp2-fog-b-health
+      - targets: ["http://fog-c:8003/health"]
+        labels:
+          service: mp2-fog-c-health
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  - job_name: mqtt-broker-probe
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    static_configs:
+      - targets: ["mosquitto:1883"]
+        labels:
+          service: mp3-mosquitto-tcp
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115

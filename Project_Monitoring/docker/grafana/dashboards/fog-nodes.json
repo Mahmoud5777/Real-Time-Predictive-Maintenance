@@ -1,0 +1,98 @@
+{
+  "id": null,
+  "uid": "mp4-fog-nodes",
+  "title": "MP4 - Nœuds Fog et tâches",
+  "tags": ["mp4", "fog", "tasks"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Tâches en attente par nœud",
+      "description": "Valeur de la jauge fog_queue_size exposée par MP2.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "fog_queue_size{job=\"mp2-fog-nodes\"}",
+          "legendFormat": "{{fog_id}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Débit de tâches terminées",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (fog_id) (rate(fog_tasks_completed_total{job=\"mp2-fog-nodes\"}[5m]))",
+          "legendFormat": "{{fog_id}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Échecs et migrations sur la dernière heure",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (fog_id) (increase(fog_tasks_failed_total{job=\"mp2-fog-nodes\"}[1h]))",
+          "legendFormat": "Échecs {{fog_id}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (source, destination, kind) (increase(fog_migrations_total{job=\"mp2-scheduler\"}[1h]))",
+          "legendFormat": "Migrations {{source}} -> {{destination}} ({{kind}})"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Latence de traitement p95",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, fog_id) (rate(fog_processing_time_seconds_bucket{job=\"mp2-fog-nodes\"}[5m])))",
+          "legendFormat": "{{fog_id}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      }
+    }
+  ]
+}

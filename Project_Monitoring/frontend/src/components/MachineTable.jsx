@@ -1,9 +1,9 @@
 
-function MachineTable({ machines }) {
+function MachineTable({ machines, total = machines.length }) {
   const statusLabels = {
-    operational: "Opérationnelle",
-    warning: "Attention",
-    critical: "Critique",
+    normal: "Normal",
+    warning: "Warning",
+    critical: "Critical",
     offline: "Hors service",
     idle: "Au repos",
     unknown: "Inconnu",
@@ -14,7 +14,7 @@ function MachineTable({ machines }) {
       <div className="machine-table-container">
         <div className="table-heading">
           <h2>Machines industrielles</h2>
-          <span>0 machine</span>
+          <span>{total} machine{total === 1 ? "" : "s"}</span>
         </div>
         <p>Aucune machine disponible.</p>
       </div>
@@ -25,7 +25,11 @@ function MachineTable({ machines }) {
     <div className="machine-table-container">
       <div className="table-heading">
         <h2>Machines industrielles</h2>
-        <span>{machines.length} machines</span>
+        <span>
+          {machines.length === total
+            ? `${total} machines`
+            : `${machines.length} affichées sur ${total}`}
+        </span>
       </div>
 
       <table className="machine-table">
@@ -33,7 +37,6 @@ function MachineTable({ machines }) {
           <tr>
             <th>Identifiant</th>
             <th>Nom</th>
-            <th>Type</th>
             <th>Zone</th>
             <th>Nœud Fog</th>
             <th>État</th>
@@ -42,7 +45,8 @@ function MachineTable({ machines }) {
 
         <tbody>
           {machines.map((machine) => {
-            const status = machine.status ?? "unknown";
+            const rawStatus = machine.status?.toLowerCase() ?? "unknown";
+            const status = rawStatus === "operational" ? "normal" : rawStatus;
 
             return (
               <tr key={machine.machine_id}>
@@ -50,7 +54,6 @@ function MachineTable({ machines }) {
                 <td className="machine-name">
                   {machine.name ?? "Non renseigné"}
                 </td>
-                <td>{machine.machine_type ?? "Non renseigné"}</td>
                 <td>
                   {machine.zone != null
                     ? `Zone ${machine.zone}`

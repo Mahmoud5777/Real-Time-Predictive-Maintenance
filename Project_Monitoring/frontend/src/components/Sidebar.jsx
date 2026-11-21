@@ -1,5 +1,5 @@
 
-function Sidebar({ activePage, setActivePage }) {
+function Sidebar({ activePage, setActivePage, connectionError }) {
   const menuItems = [
     { id: "overview", label: "Vue d'ensemble", icon: "▦" },
     { id: "machines", label: "Machines", icon: "⚙" },
@@ -37,8 +37,8 @@ function Sidebar({ activePage, setActivePage }) {
       </nav>
 
       <div className="sidebar-footer">
-        <span className="status-dot"></span>
-        Surveillance du système active
+        <span className={`status-dot${connectionError ? " offline" : ""}`}></span>
+        {connectionError ? "API indisponible" : "Données synchronisées"}
       </div>
     </aside>
   );

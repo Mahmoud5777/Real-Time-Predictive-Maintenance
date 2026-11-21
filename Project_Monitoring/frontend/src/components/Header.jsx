@@ -35,7 +35,7 @@ function Header({ activePage, connectionError, lastUpdated }) {
     },
     events: {
       title: "Événements et migrations",
-      description: "Suivez les déplacements des tâches entre les nœuds Fog.",
+      description: "Consultez les traitements, migrations et événements Fog.",
     },
   };
 

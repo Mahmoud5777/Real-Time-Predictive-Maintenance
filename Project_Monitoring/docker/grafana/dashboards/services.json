@@ -1,0 +1,117 @@
+{
+  "id": null,
+  "uid": "mp4-services",
+  "title": "MP4 - Services et conteneurs",
+  "tags": ["mp4", "services", "containers"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Disponibilité des endpoints de métriques",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "up{job=~\"mp3-api|mp3-workers|mp2-scheduler|mp2-fog-nodes\"}",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": false }
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Prêt / connecté - MP3 Ingest",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "fog_cloud_mqtt_connected",
+          "legendFormat": "MQTT connecté"
+        },
+        {
+          "refId": "B",
+          "expr": "fog_cloud_mqtt_ready",
+          "legendFormat": "Ingest prêt"
+        },
+        {
+          "refId": "C",
+          "expr": "fog_cloud_mqtt_database_ready",
+          "legendFormat": "Base prête"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "max": 1 }, "overrides": [] },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Dernier cycle réussi - workers MP3",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 9 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "fog_cloud_kpi_ready",
+          "legendFormat": "Analytics"
+        },
+        {
+          "refId": "B",
+          "expr": "fog_cloud_supervision_ready",
+          "legendFormat": "Supervision"
+        },
+        {
+          "refId": "C",
+          "expr": "fog_cloud_retention_ready",
+          "legendFormat": "Retention"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "max": 1 }, "overrides": [] },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      }
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "Âge du dernier échantillon par conteneur",
+      "description": "La présence indique que cAdvisor expose actuellement des métriques pour le conteneur; ce n'est pas un historique des conteneurs arrêtés.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 9 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - container_last_seen{id=~\"/docker/[0-9a-f]{64}\"}",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": false }
+      }
+    }
+  ]
+}

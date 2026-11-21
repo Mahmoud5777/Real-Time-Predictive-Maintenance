@@ -1,30 +1,95 @@
+import { useEffect, useState } from "react";
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 import StatCard from "./components/StatCard";
 import AlertsPanel from "./components/AlertsPanel";
-
 import MachineTable from "./components/MachineTable";
 import MeasurementPanel from "./components/MeasurementPanel";
-
-
 import PredictionPanel from "./components/PredictionPanel";
 import FogNodePanel from "./components/FogNodePanel";
 import TaskEventsPanel from "./components/TaskEventsPanel";
-
-import { useState, useEffect } from "react";
-import { getDashboardData } from "./services/dashboardService";
-
+import {
+  DEFAULT_PAGE_SIZE,
+  getAlertPage,
+  getDashboardData,
+  getMigrationPage,
+  getMeasurementPage,
+  getPredictionPage,
+  getSupervisionPage,
+  getTaskEventPage,
+} from "./services/dashboardService";
 import "./App.css";
+
+const EMPTY_PAGE = {
+  items: [],
+  total: 0,
+  limit: DEFAULT_PAGE_SIZE,
+  offset: 0,
+};
+const EMPTY_MACHINES = [];
+
+function getMachineHealthStatus(machine) {
+  const status = machine.status?.toLowerCase();
+  return status === "operational" ? "normal" : status ?? "unknown";
+}
+
+function correctOffset(page, offset, setOffset) {
+  if (offset > 0 && offset >= page.total) {
+    const lastOffset = Math.max(
+      0,
+      Math.floor((page.total - 1) / DEFAULT_PAGE_SIZE) * DEFAULT_PAGE_SIZE
+    );
+    setOffset(lastOffset);
+  }
+}
 
 function App() {
   const [activePage, setActivePage] = useState("overview");
-  const [selectedMachineId, setSelectedMachineId] = useState("");
-
-  // État des données du dashboard
+  const [selectedMachineIdState, setSelectedMachineIdState] = useState("");
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [refreshVersion, setRefreshVersion] = useState(0);
+
+  const [latestMeasurement, setLatestMeasurement] = useState(null);
+  const [measurementPage, setMeasurementPage] = useState(EMPTY_PAGE);
+  const [measurementOffset, setMeasurementOffset] = useState(0);
+  const [measurementLoading, setMeasurementLoading] = useState(true);
+  const [measurementError, setMeasurementError] = useState(null);
+
+  const [predictionPage, setPredictionPage] = useState(EMPTY_PAGE);
+  const [predictionOffset, setPredictionOffset] = useState(0);
+  const [predictionFilters, setPredictionFilters] = useState({
+    machineId: "",
+    severity: "",
+    anomaly: "",
+  });
+  const [predictionLoading, setPredictionLoading] = useState(true);
+  const [predictionError, setPredictionError] = useState(null);
+
+  const [alertPage, setAlertPage] = useState(EMPTY_PAGE);
+  const [alertOffset, setAlertOffset] = useState(0);
+  const [alertFilters, setAlertFilters] = useState({
+    machineId: "",
+    status: "",
+    severity: "",
+  });
+  const [alertLoading, setAlertLoading] = useState(true);
+  const [alertError, setAlertError] = useState(null);
+
+  const [taskEventPage, setTaskEventPage] = useState(EMPTY_PAGE);
+  const [taskEventOffset, setTaskEventOffset] = useState(0);
+  const [taskEventLoading, setTaskEventLoading] = useState(true);
+  const [taskEventError, setTaskEventError] = useState(null);
+  const [migrationPage, setMigrationPage] = useState(EMPTY_PAGE);
+  const [migrationOffset, setMigrationOffset] = useState(0);
+  const [migrationLoading, setMigrationLoading] = useState(true);
+  const [migrationError, setMigrationError] = useState(null);
+  const [supervisionPage, setSupervisionPage] = useState(EMPTY_PAGE);
+  const [supervisionOffset, setSupervisionOffset] = useState(0);
+  const [supervisionLoading, setSupervisionLoading] = useState(true);
+  const [supervisionError, setSupervisionError] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -37,22 +102,19 @@ function App() {
       try {
         const data = await getDashboardData();
         if (!active) return;
-        setDashboardData(data);
-        setSelectedMachineId((currentMachineId) => {
-          const availableMachines = data?.machines ?? [];
-
-          if (
-            availableMachines.length > 0 &&
-            !availableMachines.some(
+        const availableMachines = data?.machines ?? [];
+        if (availableMachines.length > 0) {
+          setSelectedMachineIdState((currentMachineId) =>
+            availableMachines.some(
               (machine) => machine.machine_id === currentMachineId
             )
-          ) {
-            return availableMachines[0].machine_id;
-          }
-
-          return currentMachineId;
-        });
+              ? currentMachineId
+              : availableMachines[0].machine_id
+          );
+        }
+        setDashboardData(data);
         setLastUpdated(new Date());
+        setRefreshVersion((version) => version + 1);
         setError(null);
       } catch (err) {
         if (active) setError(err.message);
@@ -71,94 +133,300 @@ function App() {
     };
   }, []);
 
+  const machines = dashboardData?.machines ?? EMPTY_MACHINES;
+  const selectedMachineId = selectedMachineIdState;
 
+  useEffect(() => {
+    if (!selectedMachineId) return undefined;
+    let active = true;
 
-  // Affichage pendant le chargement
+    getMeasurementPage({
+      machineId: selectedMachineId,
+      limit: DEFAULT_PAGE_SIZE,
+      offset: measurementOffset,
+    })
+      .then((page) => {
+        if (!active) return;
+        setMeasurementPage(page);
+        setMeasurementError(null);
+        if (measurementOffset === 0) {
+          setLatestMeasurement(page.items[0] ?? null);
+        }
+        correctOffset(page, measurementOffset, setMeasurementOffset);
+      })
+      .catch((err) => {
+        if (active) setMeasurementError(err.message);
+      })
+      .finally(() => {
+        if (active) setMeasurementLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedMachineId, measurementOffset, refreshVersion]);
+
+  useEffect(() => {
+    if (activePage !== "predictions") return undefined;
+    let active = true;
+
+    getPredictionPage({
+      filters: predictionFilters,
+      limit: DEFAULT_PAGE_SIZE,
+      offset: predictionOffset,
+    })
+      .then((page) => {
+        if (!active) return;
+        setPredictionPage(page);
+        setPredictionError(null);
+        correctOffset(page, predictionOffset, setPredictionOffset);
+      })
+      .catch((err) => {
+        if (active) setPredictionError(err.message);
+      })
+      .finally(() => {
+        if (active) setPredictionLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [activePage, predictionFilters, predictionOffset, refreshVersion]);
+
+  useEffect(() => {
+    if (activePage !== "alerts") return undefined;
+    let active = true;
+
+    getAlertPage({
+      filters: alertFilters,
+      limit: DEFAULT_PAGE_SIZE,
+      offset: alertOffset,
+      machines,
+    })
+      .then((page) => {
+        if (!active) return;
+        setAlertPage(page);
+        setAlertError(null);
+        correctOffset(page, alertOffset, setAlertOffset);
+      })
+      .catch((err) => {
+        if (active) setAlertError(err.message);
+      })
+      .finally(() => {
+        if (active) setAlertLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [activePage, alertFilters, alertOffset, machines, refreshVersion]);
+
+  useEffect(() => {
+    if (activePage !== "events") return undefined;
+    let active = true;
+
+    getTaskEventPage({
+      limit: DEFAULT_PAGE_SIZE,
+      offset: taskEventOffset,
+    })
+      .then((page) => {
+        if (!active) return;
+        setTaskEventPage(page);
+        setTaskEventError(null);
+        correctOffset(page, taskEventOffset, setTaskEventOffset);
+      })
+      .catch((err) => {
+        if (active) setTaskEventError(err.message);
+      })
+      .finally(() => {
+        if (active) setTaskEventLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [activePage, taskEventOffset, refreshVersion]);
+
+  useEffect(() => {
+    if (activePage !== "events") return undefined;
+    let active = true;
+
+    getMigrationPage({
+      limit: DEFAULT_PAGE_SIZE,
+      offset: migrationOffset,
+    })
+      .then((page) => {
+        if (!active) return;
+        setMigrationPage(page);
+        setMigrationError(null);
+        correctOffset(page, migrationOffset, setMigrationOffset);
+      })
+      .catch((err) => {
+        if (active) setMigrationError(err.message);
+      })
+      .finally(() => {
+        if (active) setMigrationLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [activePage, migrationOffset, refreshVersion]);
+
+  useEffect(() => {
+    if (activePage !== "events") return undefined;
+    let active = true;
+
+    getSupervisionPage({
+      limit: DEFAULT_PAGE_SIZE,
+      offset: supervisionOffset,
+    })
+      .then((page) => {
+        if (!active) return;
+        setSupervisionPage(page);
+        setSupervisionError(null);
+        correctOffset(page, supervisionOffset, setSupervisionOffset);
+      })
+      .catch((err) => {
+        if (active) setSupervisionError(err.message);
+      })
+      .finally(() => {
+        if (active) setSupervisionLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [activePage, supervisionOffset, refreshVersion]);
+
   if (loading) {
-    return <div className="dashboard-loading">Chargement du dashboard...</div>;
+    return (
+      <div className="dashboard-loading" role="status" aria-live="polite">
+        Chargement du dashboard...
+      </div>
+    );
   }
 
-  // Affichage en cas d'erreur
   if (error && !dashboardData) {
-    return <div className="dashboard-error">Erreur : {error}</div>;
+    return (
+      <div className="dashboard-error" role="alert">
+        Erreur : {error}
+      </div>
+    );
   }
 
-  // Récupération des données
-  const machines = dashboardData.machines;
-  const measurements = dashboardData.measurements;
-  const predictions = dashboardData.predictions;
-  const alerts = dashboardData.alerts;
+  const recentAlerts = dashboardData.recentAlerts;
+  const alertCounts = dashboardData.alertCounts;
   const fogNodes = dashboardData.fogNodes;
-  const taskEvents = dashboardData.taskEvents;
+  const machineTotal = dashboardData.machineTotal;
+  const fogNodeTotal = dashboardData.fogNodeTotal;
 
-  const selectedMeasurement = measurements.find(
-    (measurement) => measurement.machine_id === selectedMachineId
-  );
-
-  const totalMachines = machines.length;
-
-  const operationalMachines = machines.filter(
-    (machine) => machine.status === "operational"
+  const normalMachines = machines.filter(
+    (machine) => getMachineHealthStatus(machine) === "normal"
   ).length;
-
   const warningMachines = machines.filter(
-    (machine) => machine.status === "warning"
+    (machine) => getMachineHealthStatus(machine) === "warning"
   ).length;
-
   const criticalMachines = machines.filter(
-    (machine) => machine.status === "critical"
+    (machine) => getMachineHealthStatus(machine) === "critical"
   ).length;
-
   const idleMachines = machines.filter(
-    (machine) => machine.status === "idle"
+    (machine) => getMachineHealthStatus(machine) === "idle"
   ).length;
-
   const offlineMachines = machines.filter(
-    (machine) => machine.status === "offline"
+    (machine) => getMachineHealthStatus(machine) === "offline"
   ).length;
-
   const unknownMachines = machines.filter(
-    (machine) => machine.status === "unknown"
+    (machine) => getMachineHealthStatus(machine) === "unknown"
   ).length;
-  
+
   const zones = [...new Set(
-  machines
-    .map((machine) => machine.zone)
-    .filter((zone) => zone != null)
-)].sort().map((zone) => {
-  const zoneMachines = machines.filter(
-    (machine) => machine.zone === zone
-  );
-
-  return {
-    name: zone,
-    operational: zoneMachines.filter(
-      (machine) => machine.status === "operational"
-    ).length,
-    warning: zoneMachines.filter(
-      (machine) => machine.status === "warning"
-    ).length,
-    critical: zoneMachines.filter(
-      (machine) => machine.status === "critical"
-    ).length,
-    other: zoneMachines.filter(
-      (machine) =>
-        machine.status === "idle" ||
-        machine.status === "offline" ||
-        machine.status === "unknown" ||
-        !machine.status
+    machines
+      .map((machine) => machine.zone)
+      .filter((zone) => zone != null)
+  )].sort().map((zone) => {
+    const zoneMachines = machines.filter((machine) => machine.zone === zone);
+    return {
+      name: zone,
+      normal: zoneMachines.filter(
+        (machine) => getMachineHealthStatus(machine) === "normal"
       ).length,
-  };
-});
+      warning: zoneMachines.filter(
+        (machine) => getMachineHealthStatus(machine) === "warning"
+      ).length,
+      critical: zoneMachines.filter(
+        (machine) => getMachineHealthStatus(machine) === "critical"
+      ).length,
+      other: zoneMachines.filter((machine) =>
+        ["idle", "offline", "unknown"].includes(getMachineHealthStatus(machine))
+      ).length,
+    };
+  });
 
-  const recentAlerts = [...alerts]
-    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-    .slice(0, 2);
+  const updatePredictionFilter = (name, value) => {
+    setPredictionLoading(true);
+    setPredictionError(null);
+    setPredictionFilters((current) => ({ ...current, [name]: value }));
+    setPredictionOffset(0);
+  };
+  const updateAlertFilter = (name, value) => {
+    setAlertLoading(true);
+    setAlertError(null);
+    setAlertFilters((current) => ({ ...current, [name]: value }));
+    setAlertOffset(0);
+  };
+  const setActivePageWithLoading = (page) => {
+    if (page === activePage) return;
+    setActivePage(page);
+    if (page === "predictions") {
+      setPredictionLoading(true);
+      setPredictionError(null);
+    } else if (page === "alerts") {
+      setAlertLoading(true);
+      setAlertError(null);
+    } else if (page === "events") {
+      setTaskEventLoading(true);
+      setTaskEventError(null);
+      setMigrationLoading(true);
+      setMigrationError(null);
+      setSupervisionLoading(true);
+      setSupervisionError(null);
+    } else if (page === "machines") {
+      setMeasurementLoading(true);
+      setMeasurementError(null);
+    }
+  };
+  const changeMeasurementPage = (offset) => {
+    setMeasurementLoading(true);
+    setMeasurementOffset(offset);
+  };
+  const changePredictionPage = (offset) => {
+    setPredictionLoading(true);
+    setPredictionOffset(offset);
+  };
+  const changeAlertPage = (offset) => {
+    setAlertLoading(true);
+    setAlertOffset(offset);
+  };
+  const changeTaskEventPage = (offset) => {
+    setTaskEventLoading(true);
+    setTaskEventOffset(offset);
+  };
+  const changeMigrationPage = (offset) => {
+    setMigrationLoading(true);
+    setMigrationOffset(offset);
+  };
+  const changeSupervisionPage = (offset) => {
+    setSupervisionLoading(true);
+    setSupervisionOffset(offset);
+  };
+
   return (
     <div className="dashboard">
       <Sidebar
         activePage={activePage}
-        setActivePage={setActivePage}
+        setActivePage={setActivePageWithLoading}
+        connectionError={error}
       />
 
       <main className="main-content">
@@ -176,35 +444,30 @@ function App() {
 
         {activePage === "overview" && (
           <div className="dashboard-content">
-
-            {/* Indicateurs clés */}
             <section className="stats-grid">
               <StatCard
                 title="Nombre total de machines"
-                value={totalMachines}
+                value={machineTotal}
                 subtitle={`Réparties sur ${zones.length} zones`}
                 icon="⚙"
                 color="blue"
               />
-
               <StatCard
-                title="Opérationnelles"
-                value={operationalMachines}
+                title="Normal"
+                value={normalMachines}
                 subtitle={`${idleMachines} au repos, ${offlineMachines} hors service, ${unknownMachines} inconnues`}
                 icon="✓"
                 color="green"
               />
-
               <StatCard
-                title="En alerte"
+                title="Warning"
                 value={warningMachines}
                 subtitle="Nécessitent une attention"
                 icon="!"
                 color="orange"
               />
-
               <StatCard
-                title="Critiques"
+                title="Critical"
                 value={criticalMachines}
                 subtitle="Intervention immédiate requise"
                 icon="⚠"
@@ -212,51 +475,30 @@ function App() {
               />
             </section>
 
-            {/* État des zones */}
             <section className="overview-section">
               <div className="overview-section-heading">
                 <h2>État des zones industrielles</h2>
                 <span>{zones.length} zones</span>
               </div>
-
               <div className="zones-grid">
                 {zones.map((zone) => (
                   <div className="zone-card" key={zone.name}>
                     <h3>Zone {zone.name}</h3>
-
                     <div className="zone-status-bar">
-                      {zone.operational > 0 && (
-                        <div
-                          className="zone-bar-operational"
-                          style={{
-                            flex: zone.operational,
-                          }}
-                        />
+                      {zone.normal > 0 && (
+                        <div className="zone-bar-normal" style={{ flex: zone.normal }} />
                       )}
-
                       {zone.warning > 0 && (
-                        <div
-                          className="zone-bar-warning"
-                          style={{
-                            flex: zone.warning,
-                          }}
-                        />
+                        <div className="zone-bar-warning" style={{ flex: zone.warning }} />
                       )}
-
                       {zone.critical > 0 && (
-                        <div
-                          className="zone-bar-critical"
-                          style={{
-                            flex: zone.critical,
-                          }}
-                        />
+                        <div className="zone-bar-critical" style={{ flex: zone.critical }} />
                       )}
                     </div>
-
                     <div className="zone-details">
-                      <span>{zone.operational} opérationnelles</span>
-                      <span>{zone.warning} en alerte</span>
-                      <span>{zone.critical} critiques</span>
+                      <span>{zone.normal} Normal</span>
+                      <span>{zone.warning} Warning</span>
+                      <span>{zone.critical} Critical</span>
                       <span>{zone.other} hors service, au repos ou inconnues</span>
                     </div>
                   </div>
@@ -264,110 +506,156 @@ function App() {
               </div>
             </section>
 
-            {/* Alertes récentes */}
             <section className="overview-section">
               <div className="overview-section-heading">
                 <h2>Alertes récentes</h2>
-                <span>{recentAlerts.length} alertes affichées</span>
+                <div className="alert-counts">
+                  <span className="alert-count active">
+                    {alertCounts.active} actives
+                  </span>
+                  <span className="alert-count resolved">
+                    {alertCounts.resolved} résolues
+                  </span>
+                </div>
               </div>
-
               <AlertsPanel alerts={recentAlerts} compact />
             </section>
-
           </div>
         )}
 
         {activePage === "machines" && (
           <div className="dashboard-content">
-
             <section className="machines-section">
-              <MachineTable machines={machines} />
+              <MachineTable machines={machines} total={machineTotal} />
             </section>
-
             <section className="measurement-section">
               <div className="section-heading">
                 <h2>Mesures des capteurs</h2>
                 <select
+                  aria-label="Machine sélectionnée"
                   value={selectedMachineId}
-                  onChange={(e) => setSelectedMachineId(e.target.value)}
+                  onChange={(event) => {
+                    setSelectedMachineIdState(event.target.value);
+                    setMeasurementOffset(0);
+                    setMeasurementPage(EMPTY_PAGE);
+                    setLatestMeasurement(null);
+                    setMeasurementLoading(true);
+                    setMeasurementError(null);
+                  }}
                   disabled={machines.length === 0}
                 >
-                {machines.map((machine) => (
-                <option
-                  key={machine.machine_id}
-                  value={machine.machine_id}
-                >
-                  {machine.machine_id} - {machine.name}
-                </option>
-                ))}
+                  {machines.map((machine) => (
+                    <option key={machine.machine_id} value={machine.machine_id}>
+                      {machine.machine_id} - {machine.name}
+                    </option>
+                  ))}
                 </select>
               </div>
-
-              <MeasurementPanel measurement={selectedMeasurement} />
+              <MeasurementPanel
+                measurement={latestMeasurement}
+                measurements={measurementPage.items}
+                total={measurementPage.total}
+                offset={measurementOffset}
+                pageSize={DEFAULT_PAGE_SIZE}
+                onPageChange={changeMeasurementPage}
+                loading={measurementLoading}
+                error={measurementError}
+              />
             </section>
-
           </div>
         )}
+
         {activePage === "predictions" && (
           <div className="dashboard-content">
             <section className="predictions-section">
               <div className="section-heading">
                 <h2>Analyse des risques de défaillance</h2>
-                <span>{predictions.length} prédictions disponibles</span>
               </div>
-
-              <div className="predictions-grid">
-                {predictions.map((prediction) => (
-                  <div className="prediction-card" key={prediction.machine_id}>
-                    <div className="prediction-machine">
-                      <span>Machine</span>
-                        <strong>{prediction.machine_id}</strong>
-                    </div>
-
-                    <PredictionPanel prediction={prediction} />
-                  </div>
-                ))}
-              </div>
+              <PredictionPanel
+                predictions={predictionPage.items}
+                total={predictionPage.total}
+                offset={predictionOffset}
+                pageSize={DEFAULT_PAGE_SIZE}
+                onPageChange={changePredictionPage}
+                filters={predictionFilters}
+                onFilterChange={updatePredictionFilter}
+                machines={machines}
+                loading={predictionLoading}
+                error={predictionError}
+              />
             </section>
           </div>
         )}
+
         {activePage === "alerts" && (
           <div className="dashboard-content">
-
             <section className="alerts-page-section">
-
               <div className="section-heading">
                 <h2>Alertes industrielles</h2>
-                <span>{alerts.length} alertes détectées</span>
+                <div className="alert-counts">
+                  <span className="alert-count active">
+                    {alertCounts.active} actives
+                  </span>
+                  <span className="alert-count resolved">
+                    {alertCounts.resolved} résolues
+                  </span>
+                </div>
               </div>
-
-              <AlertsPanel alerts={alerts} />
-
+              <AlertsPanel
+                alerts={alertPage.items}
+                total={alertPage.total}
+                offset={alertOffset}
+                pageSize={DEFAULT_PAGE_SIZE}
+                onPageChange={changeAlertPage}
+                filters={alertFilters}
+                onFilterChange={updateAlertFilter}
+                machines={machines}
+                loading={alertLoading}
+                error={alertError}
+              />
             </section>
-
           </div>
         )}
+
         {activePage === "fog" && (
           <div className="dashboard-content">
             <section className="fog-section">
               <div className="section-heading">
                 <h2>État des nœuds Fog</h2>
-                <span>{fogNodes.length} nœuds disponibles</span>
+                <span>{fogNodeTotal} nœuds disponibles</span>
               </div>
-
               <FogNodePanel nodes={fogNodes} />
             </section>
           </div>
         )}
+
         {activePage === "events" && (
           <div className="dashboard-content">
             <section className="events-section">
               <div className="section-heading">
                 <h2>Historique des événements</h2>
-                <span>{taskEvents.length} événements enregistrés</span>
               </div>
-
-              <TaskEventsPanel events={taskEvents} />
+              <TaskEventsPanel
+                events={taskEventPage.items}
+                total={taskEventPage.total}
+                offset={taskEventOffset}
+                pageSize={DEFAULT_PAGE_SIZE}
+                onPageChange={changeTaskEventPage}
+                loading={taskEventLoading}
+                error={taskEventError}
+                migrationEvents={migrationPage.items}
+                migrationTotal={migrationPage.total}
+                migrationOffset={migrationOffset}
+                onMigrationPageChange={changeMigrationPage}
+                migrationLoading={migrationLoading}
+                migrationError={migrationError}
+                supervisionEvents={supervisionPage.items}
+                supervisionTotal={supervisionPage.total}
+                supervisionOffset={supervisionOffset}
+                onSupervisionPageChange={changeSupervisionPage}
+                supervisionLoading={supervisionLoading}
+                supervisionError={supervisionError}
+              />
             </section>
           </div>
         )}

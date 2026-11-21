@@ -1,0 +1,78 @@
+services:
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: mp4-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - mp4-phase2-prometheus-data:/prometheus
+    restart: unless-stopped
+    depends_on:
+      - blackbox-exporter
+      - cadvisor
+    networks:
+      - mp3-cloud_default
+      - mp4-monitoring-internal
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.26.0
+    container_name: mp4-blackbox-exporter
+    command:
+      - --config.file=/etc/blackbox_exporter/config.yml
+    volumes:
+      - ./blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    restart: unless-stopped
+    networks:
+      - mp3-cloud_default
+      - mp4-monitoring-internal
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: mp4-cadvisor
+    command:
+      - --housekeeping_interval=15s
+    volumes:
+      - /:/rootfs:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    restart: unless-stopped
+    networks:
+      - mp4-monitoring-internal
+
+  grafana:
+    image: grafana/grafana:11.5.2
+    container_name: mp4-grafana
+    ports:
+      - "127.0.0.1:3002:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:?Set GF_SECURITY_ADMIN_PASSWORD before starting monitoring}
+      GF_USERS_DEFAULT_THEME: light
+    volumes:
+      - mp4-phase2-grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    networks:
+      - mp4-monitoring-internal
+
+volumes:
+  mp4-phase2-prometheus-data:
+    name: mp4-phase2-prometheus-data
+  mp4-phase2-grafana-data:
+    name: mp4-phase2-grafana-data
+
+networks:
+  mp3-cloud_default:
+    name: mp3-cloud_default
+    external: true
+  mp4-monitoring-internal:
+    name: mp4-monitoring-internal
+    driver: bridge

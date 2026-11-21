@@ -1,60 +1,195 @@
-
-import machinesData from "../data/machines.json";
-import measurementsData from "../data/measurements.json";
-import predictionsData from "../data/predictions.json";
-import alertsData from "../data/alerts.json";
-import fogNodesData from "../data/fogNodes.json";
-import taskEventsData from "../data/taskEvents.json";
-
 import { api } from "./api";
 
-const DATA_SOURCE = import.meta.env.VITE_DATA_SOURCE || "mock";
+export const DEFAULT_PAGE_SIZE = 20;
 
-// Récupération des données fictives
-async function getMockData() {
+function normalizeAlert(alert, machineById) {
+  const status =
+    typeof alert.status === "string" ? alert.status.toLowerCase() : "unknown";
+  const severity =
+    typeof alert.severity === "string" ? alert.severity.toLowerCase() : "unknown";
+
   return {
-    machines: machinesData.machines,
-    measurements: measurementsData.measurements,
-    predictions: predictionsData.predictions,
-    alerts: alertsData.alerts,
-    fogNodes: fogNodesData.fog_nodes,
-    taskEvents: taskEventsData.task_events,
+    ...alert,
+    title: alert.title ?? alert.type,
+    description: alert.description ?? alert.message,
+    severity,
+    status,
+    alert_state: {
+      open: "active",
+      acknowledged: "active",
+      resolved: "resolved",
+    }[status] ?? "unknown",
+    zone: alert.zone ?? machineById?.get(alert.machine_id)?.zone ?? "Inconnue",
   };
 }
 
-// Vérification et extraction des éléments paginés
-function getItems(response, resource) {
-  if (!response || !Array.isArray(response.items)) {
+function normalizeFogNode(node) {
+  const rawStatus =
+    typeof node.status === "string" ? node.status.toLowerCase() : "unknown";
+
+  return {
+    ...node,
+    node_id: node.node_id ?? node.fog_id,
+    cpu_usage: node.cpu_usage ?? node.cpu_percent,
+    ram_usage: node.ram_usage ?? node.ram_percent,
+    queue_length: node.queue_length ?? node.queued_tasks,
+    status: rawStatus === "overloaded" ? "warning" : rawStatus,
+  };
+}
+
+function normalizeTaskEvent(event) {
+  const status =
+    typeof event.status === "string" ? event.status.toLowerCase() : "unknown";
+  const sourceNode = event.source_node ?? event.source_fog;
+  const destinationNode = event.destination_node ?? event.destination_fog;
+  const isMigration =
+    status === "migrated" &&
+    typeof sourceNode === "string" &&
+    typeof destinationNode === "string" &&
+    sourceNode !== destinationNode;
+  const inferredType = {
+    failed: "failure",
+    recovered: "recovery",
+    offline: "outage",
+  }[status] ?? (isMigration ? "migration" : "task");
+  const eventType = event.event_type ?? inferredType;
+
+  return {
+    ...event,
+    event_id: event.event_id ?? event.id,
+    event_type: eventType === "migration" && !isMigration ? "task" : eventType,
+    source_node: sourceNode,
+    destination_node: destinationNode,
+    priority:
+      typeof event.priority === "string"
+        ? event.priority.toLowerCase()
+        : event.priority,
+    status,
+    reason: event.reason ?? event.supervision_reason,
+    timestamp:
+      event.timestamp ??
+      event.occurred_at ??
+      event.observed_at ??
+      event.created_at,
+  };
+}
+
+function normalizeSupervisionEvent(event) {
+  const supervisionStatus = event.supervision_status?.toUpperCase();
+  const isOutage = supervisionStatus === "UNREACHABLE";
+  const isRecovery =
+    supervisionStatus === "REACHABLE" &&
+    event.previous_supervision_status === "UNREACHABLE";
+  const status = isOutage
+    ? "offline"
+    : supervisionStatus === "REACHABLE"
+      ? "online"
+      : supervisionStatus?.toLowerCase() ?? "unknown";
+
+  return normalizeTaskEvent({
+    ...event,
+    event_id: `supervision-${event.id}`,
+    event_type: isOutage ? "outage" : isRecovery ? "recovery" : "supervision",
+    status,
+    source_fog: event.fog_id,
+    reason: event.supervision_reason,
+    observed_at: event.observed_at,
+  });
+}
+
+function readPage(response, resource) {
+  if (
+    !response ||
+    !Array.isArray(response.items) ||
+    !response.meta ||
+    !Number.isInteger(response.meta.total)
+  ) {
     throw new Error(`Réponse API invalide pour ${resource}.`);
   }
 
-  return response.items;
+  return {
+    items: response.items,
+    total: response.meta.total,
+    limit: response.meta.limit,
+    offset: response.meta.offset,
+  };
 }
 
-// Récupération des données depuis FastAPI
-async function getApiData() {
+function toQueryString(parameters) {
+  const query = new URLSearchParams();
+
+  Object.entries(parameters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      query.set(key, String(value));
+    }
+  });
+
+  return query.toString();
+}
+
+async function getNormalizedPage(path, parameters, resource, normalizeItems) {
+  const query = toQueryString(parameters);
+  const response = await api.get(`${path}${query ? `?${query}` : ""}`);
+  const page = readPage(response, resource);
+
+  return {
+    ...page,
+    items: page.items.map(normalizeItems),
+  };
+}
+
+function normalizeMeasurement(measurement) {
+  return {
+    ...measurement,
+    state: {
+      RUNNING: "operational",
+      IDLE: "idle",
+      STOPPED: "offline",
+      FAULT: "critical",
+    }[measurement.state] ?? measurement.state,
+  };
+}
+
+function normalizePrediction(prediction) {
+  return {
+    ...prediction,
+    risk_score:
+      prediction.risk_score == null
+        ? null
+        : Number(prediction.risk_score) * 100,
+    anomaly_detected: prediction.anomaly,
+  };
+}
+
+export async function getDashboardData() {
   let machinesResponse;
   let measurementsResponse;
   let predictionsResponse;
-  let alertsResponse;
+  let recentAlertsResponse;
+  let openAlertsResponse;
+  let acknowledgedAlertsResponse;
+  let resolvedAlertsResponse;
   let fogResponse;
-  let eventsResponse;
 
   try {
     [
       machinesResponse,
       measurementsResponse,
       predictionsResponse,
-      alertsResponse,
+      recentAlertsResponse,
+      openAlertsResponse,
+      acknowledgedAlertsResponse,
+      resolvedAlertsResponse,
       fogResponse,
-      eventsResponse,
     ] = await Promise.all([
       api.get("/api/v1/machines?limit=1000"),
       api.get("/api/v1/measurements?limit=1000&sort=-timestamp"),
       api.get("/api/v1/predictions?limit=1000&sort=-timestamp"),
-      api.get("/api/v1/alerts?limit=1000&sort=-timestamp"),
+      api.get("/api/v1/alerts?limit=2&sort=-timestamp"),
+      api.get("/api/v1/alerts?status=OPEN&limit=1"),
+      api.get("/api/v1/alerts?status=ACKNOWLEDGED&limit=1"),
+      api.get("/api/v1/alerts?status=RESOLVED&limit=1"),
       api.get("/api/v1/fog/nodes?limit=1000"),
-      api.get("/api/v1/tasks/events?limit=1000&sort=-created_at"),
     ]);
   } catch (err) {
     throw new Error(
@@ -63,23 +198,32 @@ async function getApiData() {
     );
   }
 
-  const machines = getItems(machinesResponse, "machines");
-  const measurements = getItems(measurementsResponse, "mesures");
-  const predictions = getItems(predictionsResponse, "prédictions");
-  const alerts = getItems(alertsResponse, "alertes");
-  const fogNodes = getItems(fogResponse, "nœuds Fog");
-  const taskEvents = getItems(eventsResponse, "événements");
+  const machinesPage = readPage(machinesResponse, "machines");
+  const measurementsPage = readPage(measurementsResponse, "mesures");
+  const predictionsPage = readPage(predictionsResponse, "prédictions");
+  const recentAlertsPage = readPage(recentAlertsResponse, "alertes récentes");
+  const openAlertsPage = readPage(openAlertsResponse, "alertes ouvertes");
+  const acknowledgedAlertsPage = readPage(
+    acknowledgedAlertsResponse,
+    "alertes prises en compte"
+  );
+  const resolvedAlertsPage = readPage(
+    resolvedAlertsResponse,
+    "alertes résolues"
+  );
+  const fogPage = readPage(fogResponse, "nœuds Fog");
 
-  // Les réponses sont triées par date décroissante.
-  // La première mesure/prédiction rencontrée est donc la plus récente.
+  const measurements = measurementsPage.items.map(normalizeMeasurement);
+  const predictions = predictionsPage.items.map(normalizePrediction);
   const latestMeasurements = new Map();
+  const latestPredictions = new Map();
+
   for (const measurement of measurements) {
     if (!latestMeasurements.has(measurement.machine_id)) {
       latestMeasurements.set(measurement.machine_id, measurement);
     }
   }
 
-  const latestPredictions = new Map();
   for (const prediction of predictions) {
     if (!latestPredictions.has(prediction.machine_id)) {
       latestPredictions.set(prediction.machine_id, prediction);
@@ -87,107 +231,133 @@ async function getApiData() {
   }
 
   const machineById = new Map(
-    machines.map((machine) => [machine.machine_id, machine])
+    machinesPage.items.map((machine) => [machine.machine_id, machine])
   );
-
-  // Le backend ne fournit pas directement le statut de la machine.
-  // On utilise la dernière prédiction, puis la dernière mesure en secours.
-  const normalizedMachines = machines.map((machine) => {
+  const machines = machinesPage.items.map((machine) => {
     const prediction = latestPredictions.get(machine.machine_id);
     const measurement = latestMeasurements.get(machine.machine_id);
+    const predictionSeverity = prediction?.severity?.toUpperCase();
+    const measurementState = measurement?.state?.toUpperCase();
+    let status = "unknown";
 
-    
-let status = "unknown";
+    if (
+      predictionSeverity === "CRITICAL" ||
+      measurementState === "FAULT" ||
+      measurementState === "CRITICAL"
+    ) {
+      status = "critical";
+    } else if (predictionSeverity === "WARNING") {
+      status = "warning";
+    } else if (measurementState === "STOPPED" || measurementState === "OFFLINE") {
+      status = "offline";
+    } else if (measurementState === "IDLE") {
+      status = "idle";
+    } else if (
+      measurementState === "RUNNING" ||
+      measurementState === "OPERATIONAL"
+    ) {
+      status = "operational";
+    } else if (predictionSeverity === "NORMAL") {
+      status = "operational";
+    }
 
-const predictionSeverity = prediction?.severity?.toUpperCase();
-const measurementState = measurement?.state?.toUpperCase();
-
-if (predictionSeverity === "CRITICAL" || measurementState === "FAULT") {
-  status = "critical";
-  } else if (predictionSeverity === "WARNING") {
-    status = "warning";
-  } else if (measurementState === "STOPPED") {
-    status = "offline";
-  } else if (measurementState === "IDLE") {
-    status = "idle";
-  } else if (measurementState === "RUNNING") {
-    status = "operational";
-  } else if (predictionSeverity === "NORMAL") {
-    status = "operational";
-  }
     return { ...machine, status };
   });
 
-  // Adaptation des mesures pour les composants React
-  const normalizedMeasurements = measurements.map((measurement) => ({
-    ...measurement,
-    state: {
-      RUNNING: "operational",
-      IDLE: "idle",
-      STOPPED: "offline",
-      FAULT: "critical",
-    }[measurement.state] ?? measurement.state,
-  }));
-
-  // Le backend fournit un score entre 0 et 1.
-  // Le composant React attend un pourcentage entre 0 et 100.
-  const normalizedPredictions = predictions.map((prediction) => ({
-    ...prediction,
-    risk_score: prediction.risk_score * 100,
-    anomaly_detected: prediction.anomaly,
-  }));
-
-  // Adaptation des alertes
-  const normalizedAlerts = alerts.map((alert) => ({
-    ...alert,
-    title: alert.type,
-    description: alert.message,
-    severity: alert.severity.toLowerCase(),
-    status: alert.status.toLowerCase(),
-    zone: machineById.get(alert.machine_id)?.zone ?? "Inconnue",
-  }));
-
-  // Adaptation des nœuds Fog
-  const normalizedFogNodes = fogNodes.map((node) => ({
-    ...node,
-    node_id: node.fog_id,
-    cpu_usage: node.cpu_percent,
-    ram_usage: node.ram_percent,
-    queue_length: node.queued_tasks,
-    status: node.status.toLowerCase(),
-  }));
-
-  // Adaptation des événements de tâches
-  const normalizedTaskEvents = taskEvents.map((event) => ({
-    ...event,
-    event_id: event.id,
-    source_node: event.source_fog,
-    destination_node: event.destination_fog,
-    priority: event.priority.toLowerCase(),
-    status: event.status.toLowerCase(),
-    reason: event.reason ?? "Non précisée",
-    timestamp: event.occurred_at ?? event.created_at,
-  }));
-
   return {
-    machines: normalizedMachines,
-    measurements: normalizedMeasurements,
-    predictions: normalizedPredictions,
-    alerts: normalizedAlerts,
-    fogNodes: normalizedFogNodes,
-    taskEvents: normalizedTaskEvents,
+    machines,
+    machineTotal: machinesPage.total,
+    recentAlerts: recentAlertsPage.items.map((alert) =>
+      normalizeAlert(alert, machineById)
+    ),
+    alertCounts: {
+      active:
+        openAlertsPage.total + acknowledgedAlertsPage.total,
+      resolved: resolvedAlertsPage.total,
+      total: recentAlertsPage.total,
+    },
+    fogNodes: fogPage.items.map(normalizeFogNode),
+    fogNodeTotal: fogPage.total,
   };
 }
 
-// Fonction principale
-export async function getDashboardData() {
-  if (DATA_SOURCE === "mock") {
-    return await getMockData();
-  }
+export function getMeasurementPage({ machineId, limit, offset }) {
+  return getNormalizedPage(
+    "/api/v1/measurements",
+    {
+      machine_id: machineId,
+      sort: "-timestamp",
+      limit,
+      offset,
+    },
+    "historique des mesures",
+    normalizeMeasurement
+  );
+}
 
-  if (DATA_SOURCE === "api") {
-    return await getApiData();
-  }
+export function getPredictionPage({ filters, limit, offset }) {
+  return getNormalizedPage(
+    "/api/v1/predictions",
+    {
+      machine_id: filters.machineId,
+      severity: filters.severity,
+      anomaly: filters.anomaly,
+      sort: "-timestamp",
+      limit,
+      offset,
+    },
+    "prédictions",
+    normalizePrediction
+  );
+}
 
-  throw new Error(`Source de données inconnue : ${DATA_SOURCE}`);
+export function getAlertPage({ filters, limit, offset, machines = [] }) {
+  const machineById = new Map(
+    machines.map((machine) => [machine.machine_id, machine])
+  );
+
+  return getNormalizedPage(
+    "/api/v1/alerts",
+    {
+      machine_id: filters.machineId,
+      status: filters.status,
+      severity: filters.severity,
+      sort: "-timestamp",
+      limit,
+      offset,
+    },
+    "alertes",
+    (alert) => normalizeAlert(alert, machineById)
+  );
+}
+
+export function getTaskEventPage({ limit, offset, status }) {
+  return getNormalizedPage(
+    "/api/v1/tasks/events",
+    {
+      status,
+      sort: "-created_at",
+      limit,
+      offset,
+    },
+    "événements de tâches",
+    normalizeTaskEvent
+  );
+}
+
+export function getMigrationPage({ limit, offset }) {
+  return getTaskEventPage({ limit, offset, status: "MIGRATED" });
+}
+
+export function getSupervisionPage({ limit, offset }) {
+  return getNormalizedPage(
+    "/api/v1/fog/supervision-history",
+    {
+      sort: "-observed_at",
+      limit,
+      offset,
+    },
+    "historique de supervision",
+    normalizeSupervisionEvent
+  );
 }

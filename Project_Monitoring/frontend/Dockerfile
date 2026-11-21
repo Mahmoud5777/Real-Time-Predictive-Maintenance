@@ -5,12 +5,10 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Arguments de build (valeurs par défaut en mode standalone mock)
+# Argument de build pour le développement local ou le proxy de production.
 ARG VITE_API_BASE_URL=""
-ARG VITE_DATA_SOURCE="mock"
 
-ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
-    VITE_DATA_SOURCE=$VITE_DATA_SOURCE
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
 # Installation des dépendances via package-lock.json
 COPY package*.json ./
@@ -29,9 +27,9 @@ LABEL maintainer="Équipe DevOps MP4" \
       description="Industrial Monitoring Dashboard Frontend (React 19, Vite, Nginx)" \
       version="1.0.0"
 
-# Remplacement de la configuration par défaut
+# Configuration Nginx avec reverse proxy vers l'API MP3.
 RUN rm /etc/nginx/conf.d/default.conf
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.api.conf /etc/nginx/conf.d/default.conf
 
 # Copie des artefacts statiques compilés
 COPY --from=builder /app/dist /usr/share/nginx/html
