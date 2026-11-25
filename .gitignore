@@ -45,3 +45,6 @@ Thumbs.db
 
 # MP3 backend is maintained in MP3_Backend_Source
 MP1_Industrial_Simulation/mp3-cloud/
+
+# Custom Python virtual environments
+.venv*/
