@@ -24,7 +24,9 @@ services:
       - FOG_FOG_ID=fog-a
       - FOG_ZONE=A
       - FOG_PORT=8001
-      - PYTHONPATH=/app
+      - PYTHONPATH=/app:/app/mp1-simulator
+    volumes:
+      - ../mp1-simulator:/app/mp1-simulator:ro
     networks:
       - mp2-network
 
@@ -44,7 +46,9 @@ services:
       - FOG_FOG_ID=fog-b
       - FOG_ZONE=B
       - FOG_PORT=8002
-      - PYTHONPATH=/app
+      - PYTHONPATH=/app:/app/mp1-simulator
+    volumes:
+      - ../mp1-simulator:/app/mp1-simulator:ro
     networks:
       - mp2-network
 
@@ -64,7 +68,9 @@ services:
       - FOG_FOG_ID=fog-c
       - FOG_ZONE=C
       - FOG_PORT=8003
-      - PYTHONPATH=/app
+      - PYTHONPATH=/app:/app/mp1-simulator
+    volumes:
+      - ../mp1-simulator:/app/mp1-simulator:ro
     networks:
       - mp2-network
 

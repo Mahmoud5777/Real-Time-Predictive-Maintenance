@@ -1,4 +1,4 @@
-
+﻿
 import asyncio
 import uuid
 
@@ -6,7 +6,7 @@ import httpx
 import pytest
 
 
-SCHEDULER_URL = "http://127.0.0.1:8000"
+SCHEDULER_URL = "http://127.0.0.1:8100"
 
 NUMBER_OF_TASKS = 50
 
@@ -80,3 +80,4 @@ async def test_concurrent_task_dispatch():
         print(failure)
 
     assert len(successful) == NUMBER_OF_TASKS
+
