@@ -48,3 +48,6 @@ MP1_Industrial_Simulation/mp3-cloud/
 
 # Custom Python virtual environments
 .venv*/
+
+# Generated MP1 datasets and smoke-test outputs
+/mp1-simulator/data/generated/

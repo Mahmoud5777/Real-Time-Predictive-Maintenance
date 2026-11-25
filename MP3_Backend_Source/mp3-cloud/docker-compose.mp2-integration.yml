@@ -1,0 +1,15 @@
+# Overlay: connect the MP3 ingestion worker to the MP2 Mosquitto broker.
+# The external network is created by the MP2 Compose project.
+services:
+  ingest:
+    environment:
+      MQTT_HOST: mp2-mosquitto
+      MQTT_PORT: "1883"
+    networks:
+      - default
+      - mp2-network
+
+networks:
+  mp2-network:
+    external: true
+    name: mp2-network

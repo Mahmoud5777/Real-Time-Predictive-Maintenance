@@ -16,6 +16,8 @@ services:
       timeout: 3s
       retries: 10
 
+  # Standalone MP3 broker. In integrated mode, ingest connects to MP2's broker
+  # through docker-compose.mp2-integration.yml instead.
   mosquitto:
     image: eclipse-mosquitto:2
     restart: unless-stopped
@@ -31,12 +33,9 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-fog}:${POSTGRES_PASSWORD:-fog}@db:5432/${POSTGRES_DB:-fog_cloud}
-      MQTT_HOST: mosquitto
     depends_on:
       db:
         condition: service_healthy
-      mosquitto:
-        condition: service_started
     ports:
       - "${API_PORT:-8000}:8000"
     command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
@@ -47,6 +46,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-fog}:${POSTGRES_PASSWORD:-fog}@db:5432/${POSTGRES_DB:-fog_cloud}
       MQTT_HOST: mosquitto
+      MQTT_PORT: 1883
       MQTT_METRICS_HOST: 0.0.0.0
       MQTT_METRICS_PORT: 8001
     ports:
@@ -54,8 +54,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      mosquitto:
-        condition: service_started
     command: python -m app.ingest.worker
     restart: unless-stopped
     stop_grace_period: 20s
