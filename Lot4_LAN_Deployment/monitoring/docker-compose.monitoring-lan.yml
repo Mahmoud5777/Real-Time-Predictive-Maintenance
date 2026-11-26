@@ -1,0 +1,14 @@
+# Reference overlay: merge into the existing monitoring compose, not a replacement.
+# Keep Prometheus/Grafana port bindings localhost-only unless protected by VPN/reverse proxy.
+services:
+  prometheus:
+    volumes:
+      - ./config/prometheus-lan.yml:/etc/prometheus/lan-targets.yml:ro
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-lifecycle
+    # Merge scrape jobs from lan-targets.yml into the active prometheus.yml,
+    # or configure prometheus.yml to include the targets through file_sd.
+  grafana:
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:?Set a strong password in private .env}

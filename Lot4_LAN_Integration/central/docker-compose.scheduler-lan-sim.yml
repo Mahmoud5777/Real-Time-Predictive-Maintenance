@@ -1,0 +1,22 @@
+﻿services:
+  scheduler-lan-sim:
+    image: mp2-predictive-maintenance:latest
+    container_name: mp2-scheduler-lan-sim
+    restart: unless-stopped
+    command: uvicorn scheduler.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8110:8000"
+    environment:
+      MQTT_BROKER_HOST: mosquitto
+      MQTT_BROKER_PORT: "1883"
+      FOG_A_URL: http://host.docker.internal:8201
+      FOG_B_URL: http://host.docker.internal:8202
+      FOG_C_URL: http://host.docker.internal:8203
+      PYTHONPATH: /app
+    networks:
+      - mp2-network
+
+networks:
+  mp2-network:
+    external: true
+    name: mp2-network

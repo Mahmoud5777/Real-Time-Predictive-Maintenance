@@ -1,0 +1,15 @@
+# Lot 4 LAN Checklist
+- [ ] Validate bundle on central PC using Validate-Lot4-Config.ps1
+- [ ] Assign reserved/static LAN IPv4 addresses (central and Fog A/B/C)
+- [ ] Edit central/.env (real IPs)
+- [ ] Validate central compose overlay with `docker compose ... config --quiet`
+- [ ] Configure Windows Firewall (Private profile, trusted scope)
+- [ ] Start central MP2 with overlay; confirm Scheduler health
+- [ ] On each remote Fog PC: local repository copy, root .env with central IP
+- [ ] Start exactly one profile per Fog PC with Start-FogPC.ps1
+- [ ] Run Test-Lot4-LAN.ps1 connectivity check
+- [ ] Check Scheduler /nodes and verify Fog nodes appear online
+- [ ] Configure MP3 MQTT integration to central LAN IP (not Docker service DNS)
+- [ ] Render Prometheus LAN config with real addresses; back up old config first
+- [ ] Verify dashboards/metrics; ensure MQTT/Fog APIs are not Internet exposed
+- [ ] Save validated config milestone in Git (avoid committing private IP/credentials)

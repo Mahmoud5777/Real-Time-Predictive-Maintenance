@@ -1,0 +1,18 @@
+services:
+  fog-node:
+    image: ${FOG_IMAGE:?Set FOG_IMAGE to the existing Fog node image}
+    container_name: ${FOG_ID:-fog-node}
+    restart: unless-stopped
+    environment:
+      FOG_ID: ${FOG_ID:?Set FOG_ID}
+      FOG_ZONE: ${FOG_ZONE:?Set FOG_ZONE}
+      MQTT_BROKER_HOST: ${MQTT_BROKER_HOST:?Set MQTT_BROKER_HOST}
+      MQTT_BROKER_PORT: ${MQTT_BROKER_PORT:-1883}
+      MP3_API_URL: ${MP3_API_URL:-}
+    ports:
+      - "${FOG_HOST_PORT:-8001}:${FOG_CONTAINER_PORT:-8001}"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:${FOG_CONTAINER_PORT:-8001}/health', timeout=3)\""]
+      interval: 20s
+      timeout: 5s
+      retries: 3

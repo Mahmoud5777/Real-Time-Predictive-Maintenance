@@ -1,0 +1,17 @@
+# Merge these jobs into the current Prometheus configuration.
+# Change IP addresses and scrape ports to match the actual Fog node deployment.
+scrape_configs:
+  - job_name: 'mp2-fog-lan'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['192.168.1.21:8001']
+        labels: {fog_id: 'fog-a', zone: 'zone-a'}
+      - targets: ['192.168.1.22:8002']
+        labels: {fog_id: 'fog-b', zone: 'zone-b'}
+      - targets: ['192.168.1.23:8003']
+        labels: {fog_id: 'fog-c', zone: 'zone-c'}
+  - job_name: 'mp2-scheduler-lan'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['192.168.1.10:8000']
+        labels: {component: 'scheduler'}

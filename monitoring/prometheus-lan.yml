@@ -1,0 +1,35 @@
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: mp2-scheduler
+    static_configs:
+      - targets: ["${CENTRAL_LAN_IP}:8100"]
+
+  - job_name: mp2-fog-nodes-lan
+    static_configs:
+      - targets: ["${FOG_A_IP}:8101", "${FOG_B_IP}:8102", "${FOG_C_IP}:8103"]
+        labels:
+          deployment: lan
+
+  - job_name: mqtt-tcp-probe
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    static_configs:
+      - targets: ["${CENTRAL_LAN_IP}:1883"]
+        labels:
+          service: central-mqtt
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115

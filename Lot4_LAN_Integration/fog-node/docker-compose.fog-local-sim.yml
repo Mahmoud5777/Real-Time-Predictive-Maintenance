@@ -1,0 +1,68 @@
+﻿# Local single-PC simulation. Ports 8201-8203 avoid conflicts with MP2 native ports.
+services:
+  sim-fog-a:
+    build:
+      context: ../../Real-Time-Predictive-Maintenance
+      dockerfile: Dockerfile
+    image: mp2-predictive-maintenance:latest
+    container_name: mp2-fog-a-lan-sim
+    restart: unless-stopped
+    command: uvicorn fog_nodes.fog_a.main:app --host 0.0.0.0 --port 8001
+    ports: ["8201:8001"]
+    environment:
+      MQTT_BROKER_HOST: mosquitto
+      MQTT_BROKER_PORT: "1883"
+      FOG_FOG_ID: fog-a
+      FOG_ZONE: A
+      FOG_PORT: 8001
+      PYTHONPATH: /app:/app/mp1-simulator
+    networks:
+      - mp2-network
+    volumes:
+      - ../../mp1-simulator:/app/mp1-simulator:ro
+  sim-fog-b:
+    build:
+      context: ../../Real-Time-Predictive-Maintenance
+      dockerfile: Dockerfile
+    image: mp2-predictive-maintenance:latest
+    container_name: mp2-fog-b-lan-sim
+    restart: unless-stopped
+    command: uvicorn fog_nodes.fog_b.main:app --host 0.0.0.0 --port 8002
+    ports: ["8202:8002"]
+    environment:
+      MQTT_BROKER_HOST: mosquitto
+      MQTT_BROKER_PORT: "1883"
+      FOG_FOG_ID: fog-b
+      FOG_ZONE: B
+      FOG_PORT: 8002
+      PYTHONPATH: /app:/app/mp1-simulator
+    networks:
+      - mp2-network
+    volumes:
+      - ../../mp1-simulator:/app/mp1-simulator:ro
+  sim-fog-c:
+    build:
+      context: ../../Real-Time-Predictive-Maintenance
+      dockerfile: Dockerfile
+    image: mp2-predictive-maintenance:latest
+    container_name: mp2-fog-c-lan-sim
+    restart: unless-stopped
+    command: uvicorn fog_nodes.fog_c.main:app --host 0.0.0.0 --port 8003
+    ports: ["8203:8003"]
+    environment:
+      MQTT_BROKER_HOST: mosquitto
+      MQTT_BROKER_PORT: "1883"
+      FOG_FOG_ID: fog-c
+      FOG_ZONE: C
+      FOG_PORT: 8003
+      PYTHONPATH: /app:/app/mp1-simulator
+    networks:
+      - mp2-network
+    volumes:
+      - ../../mp1-simulator:/app/mp1-simulator:ro
+
+networks:
+  mp2-network:
+    external: true
+    name: mp2-network
+
