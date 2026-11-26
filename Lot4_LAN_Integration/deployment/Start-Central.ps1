@@ -1,6 +1,7 @@
-$Root = Split-Path $PSScriptRoot -Parent
-$Central = "$Root\central"
-$MP2 = (Resolve-Path "$Root\..\Real-Time-Predictive-Maintenance").Path
+$Root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$RepositoryRoot = (Resolve-Path (Join-Path $Root '..')).Path
+$Central = Join-Path $Root 'central'
+$MP2 = Join-Path $RepositoryRoot 'Real-Time-Predictive-Maintenance'
 $Overlay = "$Central\docker-compose.lan-central.yml"
 $EnvFile = "$Central\.env"
 
@@ -10,8 +11,9 @@ $Base = $Candidates | ForEach-Object { Join-Path $MP2 $_ } | Where-Object { Test
 if (!$Base) { throw "MP2 base Compose file not found in $MP2" }
 if (!(Test-Path $EnvFile)) { throw "Central .env missing. Configure it first." }
 
-docker compose --env-file $EnvFile -f $Base -f $Overlay up -d mosquitto scheduler
+docker compose --env-file $EnvFile -f $Base -f $Overlay config --quiet
+if ($LASTEXITCODE -ne 0) { throw 'Central Compose configuration is invalid.' }
+docker compose --env-file $EnvFile -f $Base -f $Overlay up -d --build mosquitto scheduler
 if ($LASTEXITCODE -ne 0) { throw "Central startup failed." }
 
-& "$PSScriptRoot\Configure-Firewall.ps1" central
-Write-Host "Central services started." -ForegroundColor Green
+Write-Host "Central services started. Firewall rules were not changed; see README.md." -ForegroundColor Green

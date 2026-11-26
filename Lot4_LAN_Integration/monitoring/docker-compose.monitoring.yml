@@ -1,0 +1,59 @@
+﻿services:
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: lot4-prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/${PROMETHEUS_CONFIG_FILE:-prometheus-local.yml}"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.enable-lifecycle"
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./prometheus-local.yml:/etc/prometheus/prometheus-local.yml:ro
+      - ./prometheus-lan.yml:/etc/prometheus/prometheus-lan.yml:ro
+      - ./alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - lot4-prometheus-data:/prometheus
+    networks:
+      - monitoring
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.27.0
+    container_name: lot4-blackbox-exporter
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/blackbox_exporter/blackbox.yml"
+    ports:
+      - "127.0.0.1:9115:9115"
+    volumes:
+      - ./blackbox.yml:/etc/blackbox_exporter/blackbox.yml:ro
+    networks:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:12.2.0
+    container_name: lot4-grafana
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3002:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Define GRAFANA_ADMIN_PASSWORD in monitoring/.env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SECURITY_COOKIE_SECURE: "false"
+    volumes:
+      - lot4-grafana-data:/var/lib/grafana
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - monitoring
+
+volumes:
+  lot4-prometheus-data:
+  lot4-grafana-data:
+
+networks:
+  monitoring:
+    driver: bridge

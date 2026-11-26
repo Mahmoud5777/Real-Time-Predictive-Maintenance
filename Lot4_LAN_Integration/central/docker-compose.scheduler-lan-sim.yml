@@ -7,16 +7,16 @@
     ports:
       - "8110:8000"
     environment:
-      MQTT_BROKER_HOST: mosquitto
+      MQTT_BROKER_HOST: lot4-sim-mosquitto
       MQTT_BROKER_PORT: "1883"
       FOG_A_URL: http://host.docker.internal:8201
       FOG_B_URL: http://host.docker.internal:8202
       FOG_C_URL: http://host.docker.internal:8203
       PYTHONPATH: /app
     networks:
-      - mp2-network
+      - lot4-sim-network
 
 networks:
-  mp2-network:
+  lot4-sim-network:
     external: true
-    name: mp2-network
+    name: lot4-sim-network

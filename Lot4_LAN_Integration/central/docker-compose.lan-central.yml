@@ -13,7 +13,7 @@ services:
     # Clear MP2's local Fog dependencies: the remote Fog nodes are on other PCs.
     depends_on: !reset []
     environment:
-      FOG_A_URL: "http://${FOG_A_IP}:8101"
-      FOG_B_URL: "http://${FOG_B_IP}:8102"
-      FOG_C_URL: "http://${FOG_C_IP}:8103"
+      FOG_A_URL: "http://${FOG_A_IP:?Set FOG_A_IP in central/.env}:8101"
+      FOG_B_URL: "http://${FOG_B_IP:?Set FOG_B_IP in central/.env}:8102"
+      FOG_C_URL: "http://${FOG_C_IP:?Set FOG_C_IP in central/.env}:8103"
 

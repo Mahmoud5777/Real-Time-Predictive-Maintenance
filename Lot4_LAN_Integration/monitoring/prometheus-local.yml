@@ -1,0 +1,130 @@
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/alert_rules.yml
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: lot4-scheduler
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["mp2-scheduler-lan-sim:8000"]
+        labels:
+          service: scheduler
+          deployment: local-sim
+
+  - job_name: lot4-fog-nodes
+    static_configs:
+      - targets:
+          - "mp2-fog-a-lan-sim:8001"
+          - "mp2-fog-b-lan-sim:8002"
+          - "mp2-fog-c-lan-sim:8003"
+        labels:
+          deployment: local-sim
+
+  - job_name: mp2-scheduler
+    static_configs:
+      - targets: ["host.docker.internal:8100"]
+        labels:
+          service: scheduler
+          deployment: mp2
+
+  - job_name: mp2-fog-nodes
+    static_configs:
+      - targets:
+          - "host.docker.internal:8101"
+          - "host.docker.internal:8102"
+          - "host.docker.internal:8103"
+        labels:
+          deployment: mp2
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: "host.docker.internal:8101"
+        target_label: fog_id
+        replacement: fog-a
+      - source_labels: [__address__]
+        regex: "host.docker.internal:8102"
+        target_label: fog_id
+        replacement: fog-b
+      - source_labels: [__address__]
+        regex: "host.docker.internal:8103"
+        target_label: fog_id
+        replacement: fog-c
+
+  - job_name: lot4-health
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets: ["http://mp2-scheduler-lan-sim:8000/health"]
+        labels: {service: scheduler, deployment: local-sim}
+      - targets: ["http://mp2-fog-a-lan-sim:8001/health"]
+        labels: {service: fog, fog_id: fog-a, deployment: local-sim}
+      - targets: ["http://mp2-fog-b-lan-sim:8002/health"]
+        labels: {service: fog, fog_id: fog-b, deployment: local-sim}
+      - targets: ["http://mp2-fog-c-lan-sim:8003/health"]
+        labels: {service: fog, fog_id: fog-c, deployment: local-sim}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  - job_name: mp2-health
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets: ["http://host.docker.internal:8100/health"]
+        labels: {service: scheduler, deployment: mp2}
+      - targets: ["http://host.docker.internal:8101/health"]
+        labels: {service: fog, fog_id: fog-a, deployment: mp2}
+      - targets: ["http://host.docker.internal:8102/health"]
+        labels: {service: fog, fog_id: fog-b, deployment: mp2}
+      - targets: ["http://host.docker.internal:8103/health"]
+        labels: {service: fog, fog_id: fog-c, deployment: mp2}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  - job_name: lot4-mqtt
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    static_configs:
+      - targets: ["lot4-sim-mosquitto:1883"]
+        labels: {service: mqtt-broker, deployment: local-sim}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  - job_name: mp2-mqtt
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    static_configs:
+      - targets: ["host.docker.internal:1884"]
+        labels: {service: mqtt-broker, deployment: mp2}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
