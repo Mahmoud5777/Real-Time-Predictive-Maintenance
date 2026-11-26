@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from app.db.catalogue import initialize_catalogue
 from app.db.session import get_session
 from app.main import app
-from app.models.tables import Alert, FogNode, FogStatusHistory, SensorData, Task, TaskEvent
+from app.models.tables import Alert, FogNode, FogStatusHistory, Prediction, SensorData, Task, TaskEvent
 from app.services import ingest
 from app.services.ingest import MODEL_BY_KIND, persist_batch
 
@@ -92,6 +92,64 @@ async def test_reused_message_id_with_changed_content_is_rejected(
     assert report.errors[0]["code"] == "MESSAGE_ID_CONFLICT"
     assert report.errors[0]["index"] == 1
     assert await count(initialized_session, MODEL_BY_KIND[kind]) == 1
+
+
+async def test_critical_predictions_create_one_alert_and_normal_resolves_episode(
+    initialized_session,
+):
+    critical = message(
+        "prediction", severity="CRITICAL", predicted_fault="OVERHEATING",
+        risk_score=0.99, timestamp="2026-11-02T08:00:00Z",
+    )
+    repeated_critical = message(
+        "prediction", severity="CRITICAL", predicted_fault="OVERHEATING",
+        risk_score=0.98, timestamp="2026-11-02T08:00:10Z",
+    )
+    first = await send(initialized_session, [critical, repeated_critical])
+    assert (first.accepted, first.rejected) == (2, 0)
+    alerts = (await initialized_session.execute(select(Alert))).scalars().all()
+    assert len(alerts) == 1
+    assert alerts[0].type == "PREDICTED_FAILURE"
+    assert alerts[0].status == "OPEN"
+    assert alerts[0].severity == "CRITICAL"
+    assert alerts[0].message_id.startswith("auto-pred-")
+
+    normal = message(
+        "prediction", severity="NORMAL", predicted_fault="NONE",
+        risk_score=0.02, timestamp="2026-11-02T08:01:00Z",
+    )
+    resolved = await send(initialized_session, [normal])
+    assert resolved.accepted == 1
+    await initialized_session.refresh(alerts[0])
+    assert alerts[0].status == "RESOLVED"
+    assert alerts[0].resolved_at is not None
+
+    next_episode = message(
+        "prediction", severity="CRITICAL", predicted_fault="BEARING_WEAR",
+        risk_score=0.97, timestamp="2026-11-02T08:02:00Z",
+    )
+    await send(initialized_session, [next_episode])
+    alerts = (await initialized_session.execute(select(Alert).order_by(Alert.id))).scalars().all()
+    assert len(alerts) == 2
+    assert [alert.status for alert in alerts] == ["RESOLVED", "OPEN"]
+
+
+async def test_late_normal_prediction_does_not_resolve_newer_critical_alert(
+    initialized_session,
+):
+    critical = message(
+        "prediction", severity="CRITICAL", predicted_fault="OVERHEATING",
+        risk_score=0.99, timestamp="2026-11-02T08:00:00Z",
+    )
+    late_normal = message(
+        "prediction", severity="NORMAL", predicted_fault="NONE",
+        risk_score=0.01, timestamp="2026-11-02T07:59:00Z",
+    )
+    report = await send(initialized_session, [critical, late_normal])
+    assert (report.accepted, report.rejected) == (2, 0)
+    alert = (await initialized_session.execute(select(Alert))).scalar_one()
+    assert alert.status == "OPEN" and alert.resolved_at is None
+    assert await count(initialized_session, Prediction) == 2
 
 
 async def test_task_id_collision_does_not_leave_an_orphan_task(initialized_session):

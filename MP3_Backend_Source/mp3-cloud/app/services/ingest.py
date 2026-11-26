@@ -4,6 +4,7 @@ Un seul chemin d ecriture pour les deux transports : c est ce qui garantit que l
 deduplication et la validation s appliquent partout de la meme facon.
 """
 
+import hashlib
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -19,6 +20,7 @@ from app.models.tables import (
     Alert,
     FogNode,
     FogStatusHistory,
+    Machine,
     Prediction,
     SensorData,
     Task,
@@ -182,6 +184,89 @@ def _task_assignment(message: TaskEvent) -> str | None:
     return message.source_fog
 
 
+async def _write_prediction(session: AsyncSession, message: PredictionResult) -> bool:
+    """Persiste une prediction et synchronise une alerte automatique par episode.
+
+    Le verrou sur la machine serialise les predictions concurrentes d'une meme machine.
+    Seule la prediction la plus recente pilote l'alerte : une observation NORMAL arrivee
+    en retard ne peut donc pas resoudre une alerte apres une CRITICAL plus recente.
+    """
+    await session.execute(
+        select(Machine.machine_id)
+        .where(Machine.machine_id == message.machine_id)
+        .with_for_update()
+    )
+    received_at = datetime.now(UTC)
+    if not await _insert_message(
+        session, Prediction, message.model_dump(), received_at
+    ):
+        return False
+
+    latest = (
+        await session.execute(
+            select(Prediction.__table__)
+            .where(Prediction.machine_id == message.machine_id)
+            .order_by(Prediction.timestamp.desc(), Prediction.id.desc())
+            .limit(1)
+        )
+    ).mappings().one()
+    if latest["severity"] == "CRITICAL":
+        active = await session.scalar(
+            select(Alert.id)
+            .where(
+                Alert.machine_id == message.machine_id,
+                Alert.type == "PREDICTED_FAILURE",
+                Alert.message_id.like("auto-pred-%"),
+                Alert.status.in_(("OPEN", "ACKNOWLEDGED")),
+            )
+            .limit(1)
+        )
+        if active is None:
+            fingerprint = hashlib.sha256(latest["message_id"].encode("utf-8")).hexdigest()[:48]
+            alert = {
+                "message_id": f"auto-pred-{fingerprint}",
+                "alert_id": f"pred-{fingerprint}",
+                "machine_id": latest["machine_id"],
+                "fog_id": latest["fog_id"],
+                "timestamp": latest["timestamp"],
+                "type": "PREDICTED_FAILURE",
+                "severity": "CRITICAL",
+                "message": (
+                    f"Risque critique de défaillance détecté pour {latest['machine_id']} "
+                    f"({latest['predicted_fault']}, score={latest['risk_score']})."
+                ),
+                "recommended_action": (
+                    "Inspecter la machine, vérifier les capteurs et planifier une intervention."
+                ),
+            }
+            await _insert_message(session, Alert, alert, received_at)
+    elif latest["severity"] == "NORMAL":
+        active_alerts = (
+            await session.execute(
+                select(Alert.__table__)
+                .where(
+                    Alert.machine_id == message.machine_id,
+                    Alert.type == "PREDICTED_FAILURE",
+                    Alert.message_id.like("auto-pred-%"),
+                    Alert.status.in_(("OPEN", "ACKNOWLEDGED")),
+                )
+                .with_for_update()
+            )
+        ).mappings().all()
+        for alert in active_alerts:
+            resolved_at = max(
+                received_at,
+                alert["timestamp"],
+                alert["acknowledged_at"] or alert["timestamp"],
+            )
+            await session.execute(
+                update(Alert)
+                .where(Alert.id == alert["id"])
+                .values(status="RESOLVED", resolved_at=resolved_at)
+            )
+    return True
+
+
 async def _write_task(session: AsyncSession, message: TaskEvent) -> bool:
     values = message.model_dump()
     values["task_id"] = values["task_id"].lower()
@@ -255,6 +340,8 @@ async def _write_message(session: AsyncSession, kind: str, message: Any) -> bool
         return await _write_fog(session, message)
     if kind == "task_event":
         return await _write_task(session, message)
+    if kind == "prediction":
+        return await _write_prediction(session, message)
     return await _insert_message(
         session, MODEL_BY_KIND[kind], message.model_dump(), datetime.now(UTC)
     )
