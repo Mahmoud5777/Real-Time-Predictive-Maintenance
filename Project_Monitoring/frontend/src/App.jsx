@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 import StatCard from "./components/StatCard";
@@ -439,8 +439,8 @@ function App() {
         />
         {error && (
           <div className="dashboard-refresh-error" role="alert">
-            ÃƒÆ’Ã¢â‚¬Â°chec de lÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢actualisation : {error}. Les derniÃƒÆ’Ã‚Â¨res donnÃƒÆ’Ã‚Â©es reÃƒÆ’Ã‚Â§ues sont
-            conservÃƒÆ’Ã‚Â©es ; une nouvelle tentative aura lieu automatiquement.
+            Échec de l’actualisation : {error}. Les dernières données reçues sont
+            conservées ; une nouvelle tentative aura lieu automatiquement.
           </div>
         )}
 
@@ -450,29 +450,29 @@ function App() {
               <StatCard
                 title="Nombre total de machines"
                 value={machineTotal}
-                subtitle={`RÃƒÆ’Ã‚Â©parties sur ${zones.length} zones`}
-                icon="ÃƒÂ¢Ã…Â¡Ã¢â€žÂ¢"
+                subtitle={`Réparties sur ${zones.length} zones`}
+                icon="⚙"
                 color="blue"
               />
               <StatCard
                 title="Normal"
                 value={normalMachines}
                 subtitle={`${idleMachines} au repos, ${offlineMachines} hors service, ${unknownMachines} inconnues`}
-                icon="ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“"
+                icon="✓"
                 color="green"
               />
               <StatCard
                 title="Warning"
                 value={warningMachines}
-                subtitle="NÃƒÆ’Ã‚Â©cessitent une attention"
+                subtitle="Nécessitent une attention"
                 icon="!"
                 color="orange"
               />
               <StatCard
                 title="Critical"
                 value={criticalMachines}
-                subtitle="Intervention immÃƒÆ’Ã‚Â©diate requise"
-                icon="ÃƒÂ¢Ã…Â¡Ã‚Â "
+                subtitle="Intervention immédiate requise"
+                icon="⚠"
                 color="red"
               />
             </section>
@@ -481,7 +481,7 @@ function App() {
 
             <section className="overview-section">
               <div className="overview-section-heading">
-                <h2>ÃƒÆ’Ã¢â‚¬Â°tat des zones industrielles</h2>
+                <h2>État des zones industrielles</h2>
                 <span>{zones.length} zones</span>
               </div>
               <div className="zones-grid">
@@ -512,17 +512,18 @@ function App() {
 
             <section className="overview-section">
               <div className="overview-section-heading">
-                <h2>Alertes rÃƒÆ’Ã‚Â©centes</h2>
+                <h2>Alertes récentes</h2>
                 <div className="alert-counts">
                   <span className="alert-count active">
                     {alertCounts.active} actives
                   </span>
                   <span className="alert-count resolved">
-                    {alertCounts.resolved} rÃƒÆ’Ã‚Â©solues
+                    {alertCounts.resolved} résolues
                   </span>
                 </div>
               </div>
               <AlertsPanel alerts={recentAlerts} compact />
+              <p className="analytics-footnote">Les alertes actives proviennent du flux d’alertes MP3. Une prédiction classée CRITICAL n’ouvre pas automatiquement une alerte.</p>
             </section>
           </div>
         )}
@@ -536,7 +537,7 @@ function App() {
               <div className="section-heading">
                 <h2>Mesures des capteurs</h2>
                 <select
-                  aria-label="Machine sÃƒÆ’Ã‚Â©lectionnÃƒÆ’Ã‚Â©e"
+                  aria-label="Machine sélectionnée"
                   value={selectedMachineId}
                   onChange={(event) => {
                     setSelectedMachineIdState(event.target.value);
@@ -573,7 +574,7 @@ function App() {
           <div className="dashboard-content">
             <section className="predictions-section">
               <div className="section-heading">
-                <h2>Analyse des risques de dÃƒÆ’Ã‚Â©faillance</h2>
+                <h2>Analyse des risques de défaillance</h2>
               </div>
               <PredictionPanel
                 predictions={predictionPage.items}
@@ -601,7 +602,7 @@ function App() {
                     {alertCounts.active} actives
                   </span>
                   <span className="alert-count resolved">
-                    {alertCounts.resolved} rÃƒÆ’Ã‚Â©solues
+                    {alertCounts.resolved} résolues
                   </span>
                 </div>
               </div>
@@ -625,8 +626,8 @@ function App() {
           <div className="dashboard-content">
             <section className="fog-section">
               <div className="section-heading">
-                <h2>ÃƒÆ’Ã¢â‚¬Â°tat des nÃƒâ€¦Ã¢â‚¬Å“uds Fog</h2>
-                <span>{fogNodeTotal} nÃƒâ€¦Ã¢â‚¬Å“uds disponibles</span>
+                <h2>État des nœuds Fog</h2>
+                <span>{fogNodeTotal} nœuds disponibles</span>
               </div>
               <FogNodePanel nodes={fogNodes} />
             </section>
@@ -637,7 +638,7 @@ function App() {
           <div className="dashboard-content">
             <section className="events-section">
               <div className="section-heading">
-                <h2>Historique des ÃƒÆ’Ã‚Â©vÃƒÆ’Ã‚Â©nements</h2>
+                <h2>Historique des événements</h2>
               </div>
               <TaskEventsPanel
                 events={taskEventPage.items}

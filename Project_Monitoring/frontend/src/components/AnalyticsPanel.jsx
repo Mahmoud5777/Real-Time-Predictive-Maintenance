@@ -201,6 +201,7 @@ function AnalyticsPanel() {
           <ul>{unavailable.map(([name, reason]) => <li key={name}><strong>{name.replaceAll("_", " ")}</strong> : {reason}</li>)}</ul>
         </details>
       )}
+      <p className="analytics-footnote">Les volumes affichés couvrent uniquement la fenêtre horaire sélectionnée ; ils ne représentent pas le total de l’historique conservé.</p>
       <p className="analytics-footnote">Source : API Analytics MP3 / cache horaire PostgreSQL. Les valeurs absentes ne sont pas remplacées par zéro.</p>
     </section>
   );
