@@ -1,0 +1,8 @@
+﻿
+InputObject                                                                         SideIndicator
+-----------                                                                         -------------
+MP3_ROOT = Path(__file__).resolve().parents[2] / "mp3" / "mp3-cloud"                =>           
+MP3_ROOT = Path(__file__).resolve().parents[2] / "MP3_Backend_Source" / "mp3-cloud" <=           
+
+
+

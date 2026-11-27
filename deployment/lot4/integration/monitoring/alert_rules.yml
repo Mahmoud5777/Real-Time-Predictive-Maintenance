@@ -1,0 +1,43 @@
+groups:
+  - name: lot4-availability
+    rules:
+      - alert: Lot4TargetDown
+        expr: up{job=~"lot4-.*|mp2-.*"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Cible Prometheus indisponible: {{ $labels.instance }}"
+          description: "Verifier le service, son endpoint /metrics et la connectivite reseau."
+
+      - alert: Lot4HealthCheckFailed
+        expr: probe_success{job=~"lot4-health|mp2-health"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Health check HTTP en echec: {{ $labels.instance }}"
+
+      - alert: Lot4MqttUnavailable
+        expr: probe_success{job=~"lot4-mqtt|mp2-mqtt"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Broker MQTT inaccessible: {{ $labels.instance }}"
+
+      - alert: Lot4FogHighCPU
+        expr: fog_cpu_usage_percent{job=~"lot4-fog-nodes|mp2-fog-nodes"} > 85
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU eleve sur {{ $labels.fog_id }}"
+
+      - alert: Lot4FogHighRAM
+        expr: fog_ram_usage_percent{job=~"lot4-fog-nodes|mp2-fog-nodes"} > 90
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "RAM elevee sur {{ $labels.fog_id }}"

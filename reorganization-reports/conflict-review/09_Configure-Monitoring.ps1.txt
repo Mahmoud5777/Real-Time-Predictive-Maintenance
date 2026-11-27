@@ -1,0 +1,42 @@
+﻿CONFLICT 9
+Source: C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\Lot4_Automation\Configure-Monitoring.ps1
+Target: C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\deployment\lot4\automation\Configure-Monitoring.ps1
+
+Source SHA256: 49067D587F4A7046E0433F950CFBFC411938B858EFD8D3FCDD8637C62A9AEEA1
+Target SHA256: E28DDCDECCA91B569F06A2503751A4D90F8939C796DC7DCEE12BBD7F9C31F1EA
+
+git : warning: in the working copy of 
+'C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\Lot4_Automation\Configure-Monitoring.ps1', LF will be replaced by 
+CRLF the next time Git touches it
+Au caractère Ligne:34 : 21
++ ...          $Diff = git diff --no-index -- $SourceFile $Destination 2>&1
++                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (warning: in the... Git touches it:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+warning: in the working copy of 
+'C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\deployment\lot4\automation\Configure-Monitoring.ps1', LF will be 
+replaced by CRLF the next time Git touches it
+diff --git "a/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\Lot4_Automation\\Configure-Monitoring.ps1" "b/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\deployment\\lot4\\automation\\Configure-Monitoring.ps1"
+index 203b41b..828d885 100644
+--- "a/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\Lot4_Automation\\Configure-Monitoring.ps1"
++++ "b/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\deployment\\lot4\\automation\\Configure-Monitoring.ps1"
+@@ -1,4 +1,4 @@
+-[CmdletBinding()]
++´╗┐[CmdletBinding()]
+ param(
+     [Parameter(Mandatory=$true)][string]$CentralIP,
+     [Parameter(Mandatory=$true)][string]$FogAIP,
+@@ -6,9 +6,9 @@ param(
+     [Parameter(Mandatory=$true)][string]$FogCIP
+ )
+ $ErrorActionPreference="Stop"
+-$RepoRoot=(Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+-$source=Join-Path $RepoRoot "Lot4_LAN_Integration\monitoring\prometheus-lan.template.yml"
+-$destination=Join-Path $RepoRoot "Lot4_LAN_Integration\monitoring\prometheus-lan.yml"
++$RepoRoot=(Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
++$source=Join-Path $RepoRoot "deployment\lot4\core\monitoring\prometheus-lan.template.yml"
++$destination=Join-Path $RepoRoot "deployment\lot4\core\monitoring\prometheus-lan.yml"
+ if(!(Test-Path $source)){throw "Prometheus template not found: $source"}
+ $content=Get-Content $source -Raw
+ $map=@{

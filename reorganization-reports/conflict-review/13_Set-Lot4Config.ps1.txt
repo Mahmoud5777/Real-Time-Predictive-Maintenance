@@ -1,0 +1,40 @@
+﻿CONFLICT 13
+Source: C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\Lot4_Automation\Set-Lot4Config.ps1
+Target: C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\deployment\lot4\automation\Set-Lot4Config.ps1
+
+Source SHA256: 5249617F5A6AE8766AED660BCC8504270A32F64985F2B1314BFB0203D3427FDF
+Target SHA256: BA6A89D10CA58D134DDEF25872B7E28AB7D7B5CF1B555B7AA692BBE9E3FEBF8A
+
+git : warning: in the working copy of 
+'C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\Lot4_Automation\Set-Lot4Config.ps1', LF will be replaced by CRLF 
+the next time Git touches it
+Au caractère Ligne:34 : 21
++ ...          $Diff = git diff --no-index -- $SourceFile $Destination 2>&1
++                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (warning: in the... Git touches it:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+warning: in the working copy of 
+'C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\deployment\lot4\automation\Set-Lot4Config.ps1', LF will be 
+replaced by CRLF the next time Git touches it
+diff --git "a/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\Lot4_Automation\\Set-Lot4Config.ps1" "b/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\deployment\\lot4\\automation\\Set-Lot4Config.ps1"
+index 12efca5..11d1ce1 100644
+--- "a/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\Lot4_Automation\\Set-Lot4Config.ps1"
++++ "b/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\deployment\\lot4\\automation\\Set-Lot4Config.ps1"
+@@ -1,4 +1,4 @@
+-[CmdletBinding()]
++´╗┐[CmdletBinding()]
+ param(
+     [Parameter(Mandatory=$true)][string]$CentralIP,
+     [Parameter(Mandatory=$true)][string]$FogAIP,
+@@ -6,8 +6,8 @@ param(
+     [Parameter(Mandatory=$true)][string]$FogCIP
+ )
+ $ErrorActionPreference = "Stop"
+-$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+-$Bundle = Join-Path $RepoRoot "Lot4_LAN_Integration"
++$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
++$Bundle = Join-Path $RepoRoot "deployment\lot4\core"
+ foreach ($ip in @($CentralIP,$FogAIP,$FogBIP,$FogCIP)) {
+     $parsed = $null
+     if (-not [System.Net.IPAddress]::TryParse($ip,[ref]$parsed) -or $parsed.AddressFamily -ne [System.Net.Sockets.AddressFamily]::InterNetwork) {

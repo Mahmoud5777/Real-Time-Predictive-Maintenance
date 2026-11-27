@@ -1,0 +1,13 @@
+PACK ADDITIF — LOT4 DEPLOIEMENT 4 PC
+
+Extraire le contenu du ZIP à la racine du dépôt Collaborative-Fog-Computing en conservant les chemins.
+Le ZIP contient :
+- Lot4_Automation/config/deployment.json (configuration commune JSON)
+- Lot4_Automation/Validate-DeploymentJson.ps1
+- Lot4_Automation/Set-Lot4ConfigFromJson.ps1
+- Lot4_Automation/Deploy-FromJson.ps1
+- Lot4_Automation/Test-DeploymentFromJson.ps1
+- README_4PC_DEPLOYMENT_FR.md
+
+Le pack suppose que les scripts Lot4_Automation et Lot4_LAN_Integration déjà existants dans le dépôt sont présents. Il ne les remplace pas.
+Commencer par lire README_4PC_DEPLOYMENT_FR.md.

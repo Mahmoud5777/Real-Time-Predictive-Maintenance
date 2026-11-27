@@ -1,0 +1,18 @@
+﻿FILE: Test-Lot4Preparation.ps1
+SOURCE: Lot4_Automation
+
+=== SOURCE ORIGINAL ===
+Lines: 40
+
+=== MIGRATED VERSION ===
+Lines: 40
+
+=== DIFFERENCES ===
+
+InputObject                                                          SideIndicator
+-----------                                                          -------------
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path =>           
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path       <=           
+
+
+

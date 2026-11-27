@@ -1,0 +1,59 @@
+﻿# Run from repository root. Start one profile only: fog-a, fog-b, or fog-c.
+services:
+  fog-a:
+    profiles: ["fog-a"]
+    build:
+      context: ../../../../projects/mp2
+      dockerfile: Dockerfile
+    image: mp2-predictive-maintenance:latest
+    container_name: mp2-fog-a-remote
+    restart: unless-stopped
+    command: uvicorn fog_nodes.fog_a.main:app --host 0.0.0.0 --port 8001
+    ports: ["8101:8001"]
+    environment:
+      MQTT_BROKER_HOST: ${CENTRAL_LAN_IP:?Set CENTRAL_LAN_IP in Fog env file}
+      MQTT_BROKER_PORT: "1883"
+      FOG_FOG_ID: fog-a
+      FOG_ZONE: A
+      FOG_PORT: 8001
+      PYTHONPATH: /app:/app/mp1-simulator
+    volumes:
+      - ../../../../projects/mp1/simulator:/app/mp1-simulator:ro
+  fog-b:
+    profiles: ["fog-b"]
+    build:
+      context: ../../../../projects/mp2
+      dockerfile: Dockerfile
+    image: mp2-predictive-maintenance:latest
+    container_name: mp2-fog-b-remote
+    restart: unless-stopped
+    command: uvicorn fog_nodes.fog_b.main:app --host 0.0.0.0 --port 8002
+    ports: ["8102:8002"]
+    environment:
+      MQTT_BROKER_HOST: ${CENTRAL_LAN_IP:?Set CENTRAL_LAN_IP in Fog env file}
+      MQTT_BROKER_PORT: "1883"
+      FOG_FOG_ID: fog-b
+      FOG_ZONE: B
+      FOG_PORT: 8002
+      PYTHONPATH: /app:/app/mp1-simulator
+    volumes:
+      - ../../../../projects/mp1/simulator:/app/mp1-simulator:ro
+  fog-c:
+    profiles: ["fog-c"]
+    build:
+      context: ../../../../projects/mp2
+      dockerfile: Dockerfile
+    image: mp2-predictive-maintenance:latest
+    container_name: mp2-fog-c-remote
+    restart: unless-stopped
+    command: uvicorn fog_nodes.fog_c.main:app --host 0.0.0.0 --port 8003
+    ports: ["8103:8003"]
+    environment:
+      MQTT_BROKER_HOST: ${CENTRAL_LAN_IP:?Set CENTRAL_LAN_IP in Fog env file}
+      MQTT_BROKER_PORT: "1883"
+      FOG_FOG_ID: fog-c
+      FOG_ZONE: C
+      FOG_PORT: 8003
+      PYTHONPATH: /app:/app/mp1-simulator
+    volumes:
+      - ../../../../projects/mp1/simulator:/app/mp1-simulator:ro

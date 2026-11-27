@@ -1,0 +1,18 @@
+﻿FILE: docs\monitoring.md
+SOURCE: Project_Monitoring
+
+=== SOURCE ORIGINAL ===
+Lines: 90
+
+=== MIGRATED VERSION ===
+Lines: 90
+
+=== DIFFERENCES ===
+
+InputObject                                                               SideIndicator
+-----------                                                               -------------
+`projects/mp4`, aprÃ¨s validation et autorisation de dÃ©ploiement :       =>           
+`Project_Monitoring`, aprÃ¨s validation et autorisation de dÃ©ploiement : <=           
+
+
+

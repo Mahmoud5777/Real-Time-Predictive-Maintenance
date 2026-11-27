@@ -1,0 +1,46 @@
+﻿CONFLICT 11
+Source: C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\Lot4_Automation\Install-Lot4.ps1
+Target: C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\deployment\lot4\automation\Install-Lot4.ps1
+
+Source SHA256: 3A2EB0EB5AB892635139100C918E6CAB3A4CE0F5603D1087ECD86C9B35C26B94
+Target SHA256: 8D9E2B56E55820515FE707C72621AD4EEEED8E1547D4862A089987F6E0AB3213
+
+git : warning: in the working copy of 
+'C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\Lot4_Automation\Install-Lot4.ps1', LF will be replaced by CRLF 
+the next time Git touches it
+Au caractère Ligne:34 : 21
++ ...          $Diff = git diff --no-index -- $SourceFile $Destination 2>&1
++                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (warning: in the... Git touches it:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+warning: in the working copy of 
+'C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\deployment\lot4\automation\Install-Lot4.ps1', LF will be replaced 
+by CRLF the next time Git touches it
+diff --git "a/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\Lot4_Automation\\Install-Lot4.ps1" "b/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\deployment\\lot4\\automation\\Install-Lot4.ps1"
+index 1a38bfb..1f905bb 100644
+--- "a/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\Lot4_Automation\\Install-Lot4.ps1"
++++ "b/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\deployment\\lot4\\automation\\Install-Lot4.ps1"
+@@ -1,18 +1,18 @@
+-[CmdletBinding()]
++´╗┐[CmdletBinding()]
+ param(
+     [Parameter(Mandatory=$true)]
+     [ValidateSet("central","fog-a","fog-b","fog-c")]
+     [string]$Role
+ )
+ $ErrorActionPreference = "Stop"
+-$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+-$Bundle = Join-Path $RepoRoot "Lot4_LAN_Integration"
++$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
++$Bundle = Join-Path $RepoRoot "deployment\lot4\core"
+ $Config = Join-Path $PSScriptRoot "config\deployment.json"
+ 
+ if (!(Get-Command docker -ErrorAction SilentlyContinue)) { throw "Docker CLI not found. Install Docker Desktop first." }
+ docker info *> $null
+ if ($LASTEXITCODE -ne 0) { throw "Docker Engine is not running. Start Docker Desktop, then retry." }
+-if (!(Test-Path $Bundle)) { throw "Lot4_LAN_Integration not found under $RepoRoot." }
++if (!(Test-Path $Bundle)) { throw "deployment\lot4\core not found under $RepoRoot." }
+ 
+ $cfg = Get-Content $Config -Raw | ConvertFrom-Json
+ if ($Role -eq "central") {

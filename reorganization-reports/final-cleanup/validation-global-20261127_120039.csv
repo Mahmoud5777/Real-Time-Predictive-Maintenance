@@ -1,0 +1,5 @@
+﻿"Projet","Validation","Statut","CodeRetour"
+"MP1","-m pytest -q","PASS","0"
+"MP2","-m pytest -q","PASS","0"
+"MP3","-m pytest -q","PASS","0"
+"MP4","Frontend npm","SKIPPED","-1"

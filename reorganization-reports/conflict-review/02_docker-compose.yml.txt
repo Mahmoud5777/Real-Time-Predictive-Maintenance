@@ -1,0 +1,55 @@
+﻿CONFLICT 2
+Source: C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\Real-Time-Predictive-Maintenance\docker-compose.yml
+Target: C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\projects\mp2\docker-compose.yml
+
+Source SHA256: 70C6110C3F42BD7D38D3A96DEB609947D31DC524B38A261B2874C74BBA528714
+Target SHA256: 1F53CAF2FA41B4AAFF42B35CFE74EF31897CDDCBBD673855B7244BBA0C5B69C2
+
+git : warning: in the working copy of 
+'C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\Real-Time-Predictive-Maintenance\docker-compose.yml', LF will be 
+replaced by CRLF the next time Git touches it
+Au caractère Ligne:34 : 21
++ ...          $Diff = git diff --no-index -- $SourceFile $Destination 2>&1
++                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (warning: in the... Git touches it:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+warning: in the working copy of 'C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\projects\mp2\docker-compose.yml', 
+LF will be replaced by CRLF the next time Git touches it
+diff --git "a/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\Real-Time-Predictive-Maintenance\\docker-compose.yml" "b/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\projects\\mp2\\docker-compose.yml"
+index a2b60ca..4b49621 100644
+--- "a/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\Real-Time-Predictive-Maintenance\\docker-compose.yml"
++++ "b/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\projects\\mp2\\docker-compose.yml"
+@@ -1,4 +1,4 @@
+-services:
++´╗┐services:
+   mosquitto:
+     image: eclipse-mosquitto:2
+     container_name: mp2-mosquitto
+@@ -29,7 +29,7 @@ services:
+       - FOG_PORT=8001
+       - PYTHONPATH=/app:/app/mp1-simulator
+     volumes:
+-      - ../mp1-simulator:/app/mp1-simulator:ro
++      - ../mp1/simulator:/app/mp1-simulator:ro
+     networks:
+       - mp2-network
+ 
+@@ -51,7 +51,7 @@ services:
+       - FOG_PORT=8002
+       - PYTHONPATH=/app:/app/mp1-simulator
+     volumes:
+-      - ../mp1-simulator:/app/mp1-simulator:ro
++      - ../mp1/simulator:/app/mp1-simulator:ro
+     networks:
+       - mp2-network
+ 
+@@ -73,7 +73,7 @@ services:
+       - FOG_PORT=8003
+       - PYTHONPATH=/app:/app/mp1-simulator
+     volumes:
+-      - ../mp1-simulator:/app/mp1-simulator:ro
++      - ../mp1/simulator:/app/mp1-simulator:ro
+     networks:
+       - mp2-network
+ 

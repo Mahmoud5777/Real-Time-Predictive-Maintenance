@@ -1,0 +1,20 @@
+services:
+  prometheus:
+    networks:
+      - monitoring
+      - lot4-sim-network
+
+  blackbox-exporter:
+    networks:
+      - monitoring
+      - lot4-sim-network
+
+  grafana:
+    networks:
+      - monitoring
+      - lot4-sim-network
+
+networks:
+  lot4-sim-network:
+    external: true
+    name: lot4-sim-network

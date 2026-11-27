@@ -1,0 +1,28 @@
+﻿FILE: compose\docker-compose.fogs.yml
+SOURCE: Lot4_Automation
+
+=== SOURCE ORIGINAL ===
+Lines: 57
+
+=== MIGRATED VERSION ===
+Lines: 57
+
+=== DIFFERENCES ===
+
+InputObject                                                                          SideIndicator
+-----------                                                                          -------------
+    build: {context: ../../../../projects/mp2, dockerfile: Dockerfile}               =>           
+    volumes: [../../../../projects/mp1/simulator:/app/mp1-simulator:ro]              =>           
+    build: {context: ../../../../projects/mp2, dockerfile: Dockerfile}               =>           
+    volumes: [../../../../projects/mp1/simulator:/app/mp1-simulator:ro]              =>           
+    build: {context: ../../../../projects/mp2, dockerfile: Dockerfile}               =>           
+    volumes: [../../../../projects/mp1/simulator:/app/mp1-simulator:ro]              =>           
+    build: {context: ../../Real-Time-Predictive-Maintenance, dockerfile: Dockerfile} <=           
+    volumes: [../../mp1-simulator:/app/mp1-simulator:ro]                             <=           
+    build: {context: ../../Real-Time-Predictive-Maintenance, dockerfile: Dockerfile} <=           
+    volumes: [../../mp1-simulator:/app/mp1-simulator:ro]                             <=           
+    build: {context: ../../Real-Time-Predictive-Maintenance, dockerfile: Dockerfile} <=           
+    volumes: [../../mp1-simulator:/app/mp1-simulator:ro]                             <=           
+
+
+

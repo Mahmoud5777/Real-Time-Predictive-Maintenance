@@ -1,0 +1,7 @@
+# Scheduler override for same-PC LAN simulation: Fog endpoints exposed on host ports 8201-8203.
+services:
+  scheduler:
+    environment:
+      FOG_A_URL: http://host.docker.internal:8201
+      FOG_B_URL: http://host.docker.internal:8202
+      FOG_C_URL: http://host.docker.internal:8203

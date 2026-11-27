@@ -1,0 +1,6 @@
+﻿"Check","Status","Details"
+"Migrated directories","PASS","All expected directories exist."
+"Essential files and folders","PASS","All expected entries exist."
+"PowerShell syntax","FAIL","11 syntax errors in 82 files scanned."
+"JSON validation","FAIL","2 invalid JSON files out of 188."
+"Legacy reference review","REVIEW","Found 49 lines with legacy tokens in active roots. Review only; no automatic changes."

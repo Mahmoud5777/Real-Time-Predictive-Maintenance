@@ -1,4 +1,4 @@
-﻿# Real-Time Predictive Maintenance Platform
+# Real-Time Predictive Maintenance Platform
 
 **Distributed Industrial IoT · Edge/Fog Computing · Machine Learning · Cloud Backend · Monitoring**
 
@@ -83,39 +83,22 @@ Each mini-project has a dedicated development branch. The integration branch com
 
 ## 4. Repository Structure
 
+The integration branch contains both the original module locations and a consolidated layout. The consolidated layout is the navigation target for new work; legacy locations remain while their contents and local changes are reconciled.
+
 ```text
-Real-Time-Predictive-Maintenance/
-│
-├── mp1-simulator/                         # MP1: Industrial simulation & AI
-│
-├── Real-Time-Predictive-Maintenance/       # MP2: Collaborative Fog Computing
-│   ├── fog_nodes/
-│   ├── scheduler/
-│   ├── mqtt/
-│   ├── shared/
-│   ├── tests/
-│   └── docker-compose.yml
-│
-├── MP3_Backend_Source/                    # MP3: Backend & cloud services
-│   ├── ...
-│   └── mp3-cloud/
-│
-├── Project_Monitoring/                    # MP4: Monitoring & dashboard
-│   ├── frontend/
-│   ├── monitoring/
-│   └── ...
-│
-├── MP1_Industrial_Simulation/              # Legacy / supporting MP1 assets
-│
-├── .github/                                # CI workflows
-├── README.md
-└── .gitignore
+.
+├── projects/
+│   ├── mp1/ (simulator, industrial simulation assets)
+│   ├── mp2/ (Fog nodes, scheduler, MQTT and tests)
+│   ├── mp3/ (contracts and FastAPI cloud backend)
+│   └── mp4/ (dashboard, Prometheus and Grafana)
+├── deployment/lot4/ (core, automation, alternative-deployment)
+├── archive/lot4/ (superseded deployment variants retained for reference)
+├── docs/ (cross-project specifications and guides)
+└── .github/workflows/ (CI workflows)
 ```
 
-> The repository contains some historical and supporting directories from the development process. The component directories above identify the main current project locations.
-
----
-
+Module entry points are documented in `projects/mpN/README.md` and `deployment/lot4/README.md`. Older root-level module folders remain during reconciliation; use the consolidated paths for new work.
 ## 5. Technology Stack
 
 ### Industrial IoT and Simulation
@@ -199,44 +182,19 @@ Refer to the documentation and configuration files in the corresponding componen
 
 #### MP1 — Industrial Simulation
 
-Location:
-
-```text
-mp1-simulator/
-```
-
-Responsible for industrial machine simulation, telemetry generation, and predictive-maintenance processing.
+Location: `projects/mp1/simulator/` (supporting industrial assets: `projects/mp1/industrial-simulation/`). See the module README for package-specific setup and commands.
 
 #### MP2 — Collaborative Fog Computing
 
-Location:
-
-```text
-Real-Time-Predictive-Maintenance/
-```
-
-Responsible for task scheduling, distributed processing, Fog nodes, MQTT communication, and collaboration mechanisms.
+Location: `projects/mp2/`. See its README for the local compose topology and test command.
 
 #### MP3 — Cloud Backend
 
-Location:
-
-```text
-MP3_Backend_Source/
-```
-
-Responsible for backend APIs, persistence, analytics, and centralized services.
+Location: `projects/mp3/`; the FastAPI service is under `mp3-cloud/`. See its README and backend README for configuration, migrations, and tests.
 
 #### MP4 — Monitoring
 
-Location:
-
-```text
-Project_Monitoring/
-```
-
-Responsible for dashboard visualization, metrics, and system observability.
-
+Location: `projects/mp4/`; the frontend is under `frontend/`. See the frontend README for npm commands.
 > Service startup commands, environment variables, ports, and deployment configurations are maintained in the individual mini-projects and their documentation.
 
 ---

@@ -1,0 +1,156 @@
+﻿CONFLICT 8
+Source: C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\Project_Monitoring\docs\monitoring.md
+Target: C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\projects\mp4\docs\monitoring.md
+
+Source SHA256: 1E5C6E5ED711F1B98BD48590156945C5587C320FF7F67A988551C64808727A78
+Target SHA256: 600CEC13EE00B284D27F4CE05114F853B8302D0C826942DBF61F4FC8858E636C
+
+diff --git "a/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\Project_Monitoring\\docs\\monitoring.md" "b/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\projects\\mp4\\docs\\monitoring.md"
+index c2fe777..b9840dc 100644
+--- "a/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\Project_Monitoring\\docs\\monitoring.md"
++++ "b/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\projects\\mp4\\docs\\monitoring.md"
+@@ -1,90 +1,90 @@
+-# Monitoring Prometheus et Grafana ÔÇö MP4
++´╗┐# Monitoring Prometheus et Grafana ├óÔé¼ÔÇØ MP4
+ 
+ Cette configuration ajoute Prometheus, Grafana, Blackbox Exporter et cAdvisor dans
+-MP4, sans changer les Compose, le code ni les donn├®es de MP1, MP2 ou MP3. Elle utilise
+-le r├®seau externe existant `mp3-cloud_default` et conserve les donn├®es Prometheus et
+-Grafana dans deux nouveaux volumes nomm├®s.
++MP4, sans changer les Compose, le code ni les donn├â┬®es de MP1, MP2 ou MP3. Elle utilise
++le r├â┬®seau externe existant `mp3-cloud_default` et conserve les donn├â┬®es Prometheus et
++Grafana dans deux nouveaux volumes nomm├â┬®s.
+ 
+-## Ports et d├®marrage
++## Ports et d├â┬®marrage
+ 
+-- Dashboard MP4 existant : `http://localhost:3001` (inchang├®).
+-- Grafana : `http://localhost:3002` (bind├® sur l'interface locale).
+-- Prometheus : `http://localhost:9090` (bind├® sur l'interface locale).
+-- cAdvisor : r├®seau interne MP4 uniquement. Blackbox Exporter : r├®seau interne MP4 et
+-  r├®seau partag├®, pour atteindre les services sond├®s.
+-- Seuls Prometheus et Blackbox Exporter rejoignent ├®galement `mp3-cloud_default`
+-  pour scruter les services externes; Grafana et cAdvisor restent isol├®s sur le
+-  r├®seau interne MP4.
++- Dashboard MP4 existant : `http://localhost:3001` (inchang├â┬®).
++- Grafana : `http://localhost:3002` (bind├â┬® sur l'interface locale).
++- Prometheus : `http://localhost:9090` (bind├â┬® sur l'interface locale).
++- cAdvisor : r├â┬®seau interne MP4 uniquement. Blackbox Exporter : r├â┬®seau interne MP4 et
++  r├â┬®seau partag├â┬®, pour atteindre les services sond├â┬®s.
++- Seuls Prometheus et Blackbox Exporter rejoignent ├â┬®galement `mp3-cloud_default`
++  pour scruter les services externes; Grafana et cAdvisor restent isol├â┬®s sur le
++  r├â┬®seau interne MP4.
+ 
+-Le Compose de monitoring est volontairement s├®par├® du Compose du Dashboard. Depuis
+-`Project_Monitoring`, apr├¿s validation et autorisation de d├®ploiement :
++Le Compose de monitoring est volontairement s├â┬®par├â┬® du Compose du Dashboard. Depuis
++`projects/mp4`, apr├â┬¿s validation et autorisation de d├â┬®ploiement :
+ 
+ ```powershell
+-$env:GF_SECURITY_ADMIN_PASSWORD = '<choisir un mot de passe local non commit├®>'
++$env:GF_SECURITY_ADMIN_PASSWORD = '<choisir un mot de passe local non commit├â┬®>'
+ docker compose -f docker/docker-compose.monitoring.yml config --quiet
+ docker compose -f docker/docker-compose.monitoring.yml up -d
+ docker compose -f docker/docker-compose.monitoring.yml ps
+ ```
+ 
+-Le d├®ploiement ne doit pas utiliser `down`, `down -v` ni une commande qui supprime le
+-r├®seau partag├®. Les volumes `mp4-phase2-prometheus-data` et
++Le d├â┬®ploiement ne doit pas utiliser `down`, `down -v` ni une commande qui supprime le
++r├â┬®seau partag├â┬®. Les volumes `mp4-phase2-prometheus-data` et
+ `mp4-phase2-grafana-data` sont distincts des volumes existants.
+ 
+-## Collecte configur├®e
++## Collecte configur├â┬®e
+ 
+ Prometheus collecte toutes les 15 secondes :
+ 
+ - MP3 API : `api:8000/metrics`.
+ - MP3 Ingest, Analytics, Supervision et Retention : leurs endpoints `/metrics`
+-  respectifs sur les ports internes 8001 ├á 8004.
++  respectifs sur les ports internes 8001 ├â┬á 8004.
+ - MP2 Scheduler et Fog A/B/C : leurs endpoints `/metrics` sur les ports internes
+-  8000 ├á 8003.
++  8000 ├â┬á 8003.
+ - Prometheus, Blackbox Exporter et cAdvisor.
+ - Des sondes HTTP pour l'API MP3, le proxy MP4, le Scheduler et chaque Fog node.
+-- Une sonde TCP sur `mosquitto:1883`. Elle v├®rifie uniquement l'ouverture TCP, pas
+-  l'authentification MQTT ni la publication/r├®ception de messages.
++- Une sonde TCP sur `mosquitto:1883`. Elle v├â┬®rifie uniquement l'ouverture TCP, pas
++  l'authentification MQTT ni la publication/r├â┬®ception de messages.
+ 
+-Familles Prometheus v├®rifi├®es sur les endpoints actuels :
++Familles Prometheus v├â┬®rifi├â┬®es sur les endpoints actuels :
+ 
+-- MP3 API : `fog_cloud_http_requests_total`, m├®triques Python et processus.
+-- MP3 Ingest : compteurs de messages MQTT, ├®tat de connexion/pr├¬t, profondeur de
++- MP3 API : `fog_cloud_http_requests_total`, m├â┬®triques Python et processus.
++- MP3 Ingest : compteurs de messages MQTT, ├â┬®tat de connexion/pr├â┬¬t, profondeur de
+   file et latence de traitement.
+-- MP3 Analytics, Supervision et Retention : ├®tat des cycles, dernier succ├¿s,
+-  r├®sultats et volumes ├®crits.
+-- MP2 Scheduler/Fog : CPU/RAM Fog, taille de file, t├óches termin├®es/├®chou├®es,
++- MP3 Analytics, Supervision et Retention : ├â┬®tat des cycles, dernier succ├â┬¿s,
++  r├â┬®sultats et volumes ├â┬®crits.
++- MP2 Scheduler/Fog : CPU/RAM Fog, taille de file, t├â┬óches termin├â┬®es/├â┬®chou├â┬®es,
+   migrations et histogrammes de latence/traitement.
+-- Blackbox : disponibilit├® (`probe_success`) et dur├®e des sondes
++- Blackbox : disponibilit├â┬® (`probe_success`) et dur├â┬®e des sondes
+   (`probe_duration_seconds`).
+-- cAdvisor : m├®triques CPU et m├®moire des conteneurs visibles depuis l'h├┤te Linux
++- cAdvisor : m├â┬®triques CPU et m├â┬®moire des conteneurs visibles depuis l'h├â┬┤te Linux
+   Docker. Un lancement temporaire sur Docker Desktop a servi `/metrics` en HTTP 200
+-  et expos├® des s├®ries CPU/m├®moire avec le label `id=/docker/<container-id>`.
++  et expos├â┬® des s├â┬®ries CPU/m├â┬®moire avec le label `id=/docker/<container-id>`.
+   Les panneaux filtrent maintenant ces IDs pour exclure les cgroups parents. Les noms
+-  Compose ne sont pas fournis par les labels observ├®s.
++  Compose ne sont pas fournis par les labels observ├â┬®s.
+ 
+-## Limites observ├®es
++## Limites observ├â┬®es
+ 
+-- MP4 sert son interface sur `/metrics` (HTML), pas des m├®triques Prometheus. Il est
+-  supervis├® par `/healthz` et par une route API en lecture seule.
+-- Les ├®v├®nements `/api/v1/tasks/events` et l'historique de supervision ne sont pas
+-  eux-m├¬mes des endpoints Prometheus. Les m├®triques de t├óches MP2 sont des compteurs,
+-  jauges et histogrammes, pas une exportation de chaque ├®v├®nement MP3.
+-- Mosquitto ne fournit pas de `/metrics` observ├®. La sonde TCP ne prouve pas le bon
++- MP4 sert son interface sur `/metrics` (HTML), pas des m├â┬®triques Prometheus. Il est
++  supervis├â┬® par `/healthz` et par une route API en lecture seule.
++- Les ├â┬®v├â┬®nements `/api/v1/tasks/events` et l'historique de supervision ne sont pas
++  eux-m├â┬¬mes des endpoints Prometheus. Les m├â┬®triques de t├â┬óches MP2 sont des compteurs,
++  jauges et histogrammes, pas une exportation de chaque ├â┬®v├â┬®nement MP3.
++- Mosquitto ne fournit pas de `/metrics` observ├â┬®. La sonde TCP ne prouve pas le bon
+   fonctionnement du protocole MQTT.
+-- Aucun endpoint Prometheus ni exporter PostgreSQL n'a ├®t├® v├®rifi├®/configur├®.
+-- La configuration ne collecte pas l'├®tat Docker d├®taill├® (code de sortie ou compteur
+-  de red├®marrages). `up` indique la disponibilit├® des endpoints scrut├®s; cAdvisor
+-  expose les conteneurs qu'il voit, sans historique fiable des conteneurs arr├¬t├®s.
+-- Le daemon Docker ne r├®pond pas sur `localhost:9323/metrics`. cAdvisor a ├®t├® valid├®
+-  s├®par├®ment sur Docker Desktop avec ses montages h├┤te en lecture seule; les m├®triques
++- Aucun endpoint Prometheus ni exporter PostgreSQL n'a ├â┬®t├â┬® v├â┬®rifi├â┬®/configur├â┬®.
++- La configuration ne collecte pas l'├â┬®tat Docker d├â┬®taill├â┬® (code de sortie ou compteur
++  de red├â┬®marrages). `up` indique la disponibilit├â┬® des endpoints scrut├â┬®s; cAdvisor
++  expose les conteneurs qu'il voit, sans historique fiable des conteneurs arr├â┬¬t├â┬®s.
++- Le daemon Docker ne r├â┬®pond pas sur `localhost:9323/metrics`. cAdvisor a ├â┬®t├â┬® valid├â┬®
++  s├â┬®par├â┬®ment sur Docker Desktop avec ses montages h├â┬┤te en lecture seule; les m├â┬®triques
+   Linux par ID sont accessibles. Les montages ne donnent pas les codes de sortie ni
+-  les compteurs de red├®marrage. L'absence de `/dev/kmsg` d├®sactive la collecte des
+-  ├®v├®nements OOM. Aucun socket Docker n'est mont├®.
+-- Cette int├®gration MP4 n'ajoute pas de target MP1; elle ne modifie ni n'instrumente
++  les compteurs de red├â┬®marrage. L'absence de `/dev/kmsg` d├â┬®sactive la collecte des
++  ├â┬®v├â┬®nements OOM. Aucun socket Docker n'est mont├â┬®.
++- Cette int├â┬®gration MP4 n'ajoute pas de target MP1; elle ne modifie ni n'instrumente
+   le simulateur.
+-- Les endpoints des services MP2/MP3 sont joignables depuis l'h├┤te et leurs alias
+-  DNS sont pr├®sents sur le r├®seau partag├®. Les ├®tats `UP`/`DOWN` Prometheus ne peuvent
+-  ├¬tre confirm├®s qu'apr├¿s d├®marrage autoris├® de cette stack.
++- Les endpoints des services MP2/MP3 sont joignables depuis l'h├â┬┤te et leurs alias
++  DNS sont pr├â┬®sents sur le r├â┬®seau partag├â┬®. Les ├â┬®tats `UP`/`DOWN` Prometheus ne peuvent
++  ├â┬¬tre confirm├â┬®s qu'apr├â┬¿s d├â┬®marrage autoris├â┬® de cette stack.
+ 
+ Grafana provisionne la source Prometheus et les tableaux de bord depuis les fichiers
+-de `docker/grafana`. Les tableaux de bord ne fabriquent pas de donn├®es : les panneaux
+-restent vides si une famille m├®trique n'a encore aucun ├®chantillon.
++de `docker/grafana`. Les tableaux de bord ne fabriquent pas de donn├â┬®es : les panneaux
++restent vides si une famille m├â┬®trique n'a encore aucun ├â┬®chantillon.

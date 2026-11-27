@@ -1,0 +1,22 @@
+﻿FILE: Validate-DeploymentJson.ps1
+SOURCE: Lot4_Automation
+
+=== SOURCE ORIGINAL ===
+Lines: 46
+
+=== MIGRATED VERSION ===
+Lines: 46
+
+=== DIFFERENCES ===
+
+InputObject                                                                                                                   
+-----------                                                                                                                   
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path                                                          
+$requiredFiles = @('projects\mp2\Dockerfile','projects\mp2\mosquitto\mosquitto.conf','deployment\lot4\core\monitoring\prome...
+$requiredDirs = @('projects\mp1\simulator','deployment\lot4\core\monitoring\grafana\provisioning\dashboards','deployment\lo...
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path                                                                
+$requiredFiles = @('Real-Time-Predictive-Maintenance\Dockerfile','Real-Time-Predictive-Maintenance\mosquitto\mosquitto.conf...
+$requiredDirs = @('mp1-simulator','Lot4_LAN_Integration\monitoring\grafana\provisioning\dashboards','Lot4_LAN_Integration\m...
+
+
+

@@ -1,0 +1,62 @@
+﻿global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/alert_rules.yml
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: mp2-scheduler
+    static_configs:
+      - targets: ["192.168.1.10:8100"]
+        labels: {service: scheduler, deployment: lan}
+
+  - job_name: mp2-fog-nodes
+    static_configs:
+      - targets: ["192.168.1.11:8101"]
+        labels: {deployment: lan, fog_id: fog-a}
+      - targets: ["192.168.1.12:8102"]
+        labels: {deployment: lan, fog_id: fog-b}
+      - targets: ["192.168.1.13:8103"]
+        labels: {deployment: lan, fog_id: fog-c}
+
+  - job_name: mp2-health
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets: ["http://192.168.1.10:8100/health"]
+        labels: {service: scheduler, deployment: lan}
+      - targets: ["http://192.168.1.11:8101/health"]
+        labels: {service: fog, fog_id: fog-a, deployment: lan}
+      - targets: ["http://192.168.1.12:8102/health"]
+        labels: {service: fog, fog_id: fog-b, deployment: lan}
+      - targets: ["http://192.168.1.13:8103/health"]
+        labels: {service: fog, fog_id: fog-c, deployment: lan}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  - job_name: mp2-mqtt
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    static_configs:
+      - targets: ["192.168.1.10:1883"]
+        labels: {service: mqtt-broker, deployment: lan}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115

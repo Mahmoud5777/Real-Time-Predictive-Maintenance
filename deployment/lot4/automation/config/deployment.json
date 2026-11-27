@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "project": "Collaborative-Fog-Computing",
+  "environment": "production-lan",
+  "network": {
+    "subnetCidr": "192.168.1.0/24",
+    "mqttProtocol": "tcp",
+    "mqttPort": 1883,
+    "requireStaticOrReservedIps": true
+  },
+  "centralIp": "192.168.1.10",
+  "fogAIp": "192.168.1.11",
+  "fogBIp": "192.168.1.12",
+  "fogCIp": "192.168.1.13",
+  "addressesConfirmed": false,
+  "schedulerPort": 8100,
+  "fogPorts": {
+    "fog-a": 8101,
+    "fog-b": 8102,
+    "fog-c": 8103
+  },
+  "roles": {
+    "central": {
+      "host": "central",
+      "services": ["mqtt-broker", "scheduler", "prometheus", "grafana", "blackbox-exporter"]
+    },
+    "fog-a": { "host": "fog-a", "fogId": "fog-a" },
+    "fog-b": { "host": "fog-b", "fogId": "fog-b" },
+    "fog-c": { "host": "fog-c", "fogId": "fog-c" }
+  },
+  "monitoring": {
+    "enabled": true,
+    "prometheusPort": 9090,
+    "grafanaPort": 3002,
+    "blackboxPort": 9115,
+    "scrapeInterval": "15s"
+  },
+  "deployment": {
+    "method": "clone-repository-and-run-role-locally",
+    "dockerComposeProjectPrefix": "lot4",
+    "automaticFirewallChanges": false,
+    "automaticRemoteExecution": false
+  },
+  "repoRootHint": "Collaborative-Fog-Computing"
+}

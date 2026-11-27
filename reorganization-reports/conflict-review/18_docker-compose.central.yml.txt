@@ -1,0 +1,75 @@
+﻿CONFLICT 18
+Source: C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\Lot4_Automation\compose\docker-compose.central.yml
+Target: C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\deployment\lot4\automation\compose\docker-compose.central.yml
+
+Source SHA256: AB32E5A0C9C37EA716E3FD1CAA2612B20E971FF6692694EC99D65880D5A6B403
+Target SHA256: D5E2090AE1AC378FA76D412CE65998C31BFE80575417680DB4AEFA28A17A70F2
+
+git : warning: in the working copy of 
+'C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\Lot4_Automation\compose\docker-compose.central.yml', LF will be 
+replaced by CRLF the next time Git touches it
+Au caractère Ligne:34 : 21
++ ...          $Diff = git diff --no-index -- $SourceFile $Destination 2>&1
++                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (warning: in the... Git touches it:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+warning: in the working copy of 
+'C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\deployment\lot4\automation\compose\docker-compose.central.yml', 
+LF will be replaced by CRLF the next time Git touches it
+diff --git "a/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\Lot4_Automation\\compose\\docker-compose.central.yml" "b/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\deployment\\lot4\\automation\\compose\\docker-compose.central.yml"
+index 2c8cad8..21dccdc 100644
+--- "a/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\Lot4_Automation\\compose\\docker-compose.central.yml"
++++ "b/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\deployment\\lot4\\automation\\compose\\docker-compose.central.yml"
+@@ -1,4 +1,4 @@
+-name: ${COMPOSE_PROJECT_NAME:-lot4-physical-central}
++´╗┐name: ${COMPOSE_PROJECT_NAME:-lot4-physical-central}
+ services:
+   mqtt-broker:
+     image: eclipse-mosquitto:2
+@@ -6,12 +6,12 @@ services:
+     restart: unless-stopped
+     ports: ["${MQTT_PORT:-1883}:1883"]
+     volumes:
+-      - ../../Real-Time-Predictive-Maintenance/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
++      - ../../../../projects/mp2/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+       - lot4_mqtt_data:/mosquitto/data
+     networks: [lot4_physical]
+   scheduler:
+     build:
+-      context: ../../Real-Time-Predictive-Maintenance
++      context: ../../../../projects/mp2
+       dockerfile: Dockerfile
+     image: lot4-physical-scheduler:local
+     container_name: ${COMPOSE_PROJECT_NAME:-lot4-physical}-scheduler
+@@ -34,7 +34,7 @@ services:
+     ports: ["${PROMETHEUS_PORT:-9090}:9090"]
+     volumes:
+       - ../config/generated/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+-      - ../../Lot4_LAN_Integration/monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
++      - ../../core/monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+       - lot4_prometheus_data:/prometheus
+     networks: [lot4_physical]
+   blackbox-exporter:
+@@ -43,7 +43,7 @@ services:
+     restart: unless-stopped
+     command: [--config.file=/etc/blackbox_exporter/blackbox.yml]
+     ports: ["${BLACKBOX_PORT:-9115}:9115"]
+-    volumes: [../../Lot4_LAN_Integration/monitoring/blackbox.yml:/etc/blackbox_exporter/blackbox.yml:ro]
++    volumes: [../../core/monitoring/blackbox.yml:/etc/blackbox_exporter/blackbox.yml:ro]
+     networks: [lot4_physical]
+   grafana:
+     image: grafana/grafana:12.2.0
+@@ -57,9 +57,9 @@ services:
+       GF_SECURITY_COOKIE_SECURE: "false"
+     volumes:
+       - lot4_grafana_data:/var/lib/grafana
+-      - ../../Lot4_LAN_Integration/monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+-      - ../../Lot4_LAN_Integration/monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+-      - ../../Lot4_LAN_Integration/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
++      - ../../core/monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
++      - ../../core/monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
++      - ../../core/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+     networks: [lot4_physical]
+ networks:
+   lot4_physical:

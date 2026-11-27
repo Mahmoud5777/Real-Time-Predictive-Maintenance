@@ -1,0 +1,12 @@
+﻿
+InputObject                                                                           SideIndicator
+-----------                                                                           -------------
+$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path                  =>           
+$Bundle = Join-Path $RepoRoot "deployment\lot4\core"                                  =>           
+if (!(Test-Path $Bundle)) { throw "deployment\lot4\core not found under $RepoRoot." } =>           
+$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path                        <=           
+$Bundle = Join-Path $RepoRoot "Lot4_LAN_Integration"                                  <=           
+if (!(Test-Path $Bundle)) { throw "Lot4_LAN_Integration not found under $RepoRoot." } <=           
+
+
+

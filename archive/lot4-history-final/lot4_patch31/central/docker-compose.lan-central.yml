@@ -1,0 +1,18 @@
+# Central-PC overlay: use with MP2 base compose. Original MP2 compose is unchanged.
+services:
+  mosquitto:
+    ports:
+      - "1883:1883"
+  fog-a:
+    profiles: ["remote-fogs"]
+  fog-b:
+    profiles: ["remote-fogs"]
+  fog-c:
+    profiles: ["remote-fogs"]
+  scheduler:
+    # Clear MP2's local Fog dependencies: the remote Fog nodes are on other PCs.
+    depends_on: null
+    environment:
+      FOG_A_URL: "http://${FOG_A_IP}:8101"
+      FOG_B_URL: "http://${FOG_B_IP}:8102"
+      FOG_C_URL: "http://${FOG_C_IP}:8103"

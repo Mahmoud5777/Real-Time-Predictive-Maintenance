@@ -1,0 +1,8 @@
+﻿
+InputObject                                                          SideIndicator
+-----------                                                          -------------
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path =>           
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path       <=           
+
+
+

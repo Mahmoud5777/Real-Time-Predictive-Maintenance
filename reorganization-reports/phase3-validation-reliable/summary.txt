@@ -1,0 +1,10 @@
+﻿Phase 3 focused validation summary
+Repository root: C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing
+PowerShell scripts scanned: 32
+JSON files scanned: 67
+Failed checks: 1
+Review checks: 1
+Syntax issues: 0
+JSON issues: 1
+Legacy review lines: 49
+Reports: C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\reorganization-reports\phase3-validation-reliable

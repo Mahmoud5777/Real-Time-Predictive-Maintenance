@@ -1,0 +1,10 @@
+﻿
+InputObject                                                                                                              SideI
+                                                                                                                         ndica
+                                                                                                                         tor  
+-----------                                                                                                              -----
+  $template = Join-Path (Split-Path $PSScriptRoot -Parent) 'core\monitoring\prometheus-lan.template.yml'                 =>   
+  $template = Join-Path (Split-Path $PSScriptRoot -Parent) 'Lot4_LAN_Integration\monitoring\prometheus-lan.template.yml' <=   
+
+
+

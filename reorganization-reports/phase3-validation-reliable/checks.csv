@@ -1,0 +1,4 @@
+﻿"Check","Status","Details"
+"PowerShell syntax","PASS","0 syntax errors in 32 scripts scanned; self-validator excluded."
+"JSON validation","FAIL","1 invalid JSON files out of 67 scanned."
+"Legacy reference review","REVIEW","49 legacy-reference lines. Review only; no automatic path changes."

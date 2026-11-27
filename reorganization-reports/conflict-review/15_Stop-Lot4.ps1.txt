@@ -1,0 +1,36 @@
+﻿CONFLICT 15
+Source: C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\Lot4_Automation\Stop-Lot4.ps1
+Target: C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\deployment\lot4\automation\Stop-Lot4.ps1
+
+Source SHA256: F4DF29C11B991A547270A2AE3D9BDFF7A21C1A3F1A6BC1DAA812AD02EB17AD75
+Target SHA256: 33EF93B0A109EE7FA01EF5FEED2451E062418028FB22654E520EBF764890006E
+
+git : warning: in the working copy of 
+'C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\Lot4_Automation\Stop-Lot4.ps1', LF will be replaced by CRLF the 
+next time Git touches it
+Au caractère Ligne:34 : 21
++ ...          $Diff = git diff --no-index -- $SourceFile $Destination 2>&1
++                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (warning: in the... Git touches it:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+warning: in the working copy of 
+'C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\deployment\lot4\automation\Stop-Lot4.ps1', LF will be replaced by 
+CRLF the next time Git touches it
+diff --git "a/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\Lot4_Automation\\Stop-Lot4.ps1" "b/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\deployment\\lot4\\automation\\Stop-Lot4.ps1"
+index fce81b2..10abbdc 100644
+--- "a/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\Lot4_Automation\\Stop-Lot4.ps1"
++++ "b/C:\\Users\\ayedi\\Desktop\\projets\\Collaborative-Fog-Computing\\deployment\\lot4\\automation\\Stop-Lot4.ps1"
+@@ -1,8 +1,8 @@
+-[CmdletBinding()]
++´╗┐[CmdletBinding()]
+ param([Parameter(Mandatory=$true)][ValidateSet("central","fog-a","fog-b","fog-c","all-local-sim")][string]$Role)
+-$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+-$Bundle = Join-Path $RepoRoot "Lot4_LAN_Integration"
+-$MP2 = Join-Path $RepoRoot "Real-Time-Predictive-Maintenance"
++$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
++$Bundle = Join-Path $RepoRoot "deployment\lot4\core"
++$MP2 = Join-Path $RepoRoot "projects\mp2"
+ switch ($Role) {
+     "central" {
+         $envFile=Join-Path $Bundle "central\.env"

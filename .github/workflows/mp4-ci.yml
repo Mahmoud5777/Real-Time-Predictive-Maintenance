@@ -1,15 +1,15 @@
-name: MP4 CI
+﻿name: MP4 CI
 
 on:
   push:
     paths:
-      - "Project_Monitoring/frontend/**"
-      - "Project_Monitoring/.github/workflows/**"
+      - "projects/mp4/frontend/**"
+      - "projects/mp4/.github/workflows/**"
       - ".github/workflows/mp4-ci.yml"
   pull_request:
     paths:
-      - "Project_Monitoring/frontend/**"
-      - "Project_Monitoring/.github/workflows/**"
+      - "projects/mp4/frontend/**"
+      - "projects/mp4/.github/workflows/**"
       - ".github/workflows/mp4-ci.yml"
   workflow_dispatch:
 
@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: Project_Monitoring/frontend
+        working-directory: projects/mp4/frontend
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -28,7 +28,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: Project_Monitoring/frontend/package-lock.json
+          cache-dependency-path: projects/mp4/frontend/package-lock.json
 
       - name: Install dependencies
         run: npm ci

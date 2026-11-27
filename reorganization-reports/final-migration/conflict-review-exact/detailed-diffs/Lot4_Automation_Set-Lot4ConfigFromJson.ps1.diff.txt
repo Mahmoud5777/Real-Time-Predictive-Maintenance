@@ -1,0 +1,20 @@
+﻿FILE: Set-Lot4ConfigFromJson.ps1
+SOURCE: Lot4_Automation
+
+=== SOURCE ORIGINAL ===
+Lines: 48
+
+=== MIGRATED VERSION ===
+Lines: 48
+
+=== DIFFERENCES ===
+
+InputObject                                                                                                              SideI
+                                                                                                                         ndica
+                                                                                                                         tor  
+-----------                                                                                                              -----
+  $template = Join-Path (Split-Path $PSScriptRoot -Parent) 'core\monitoring\prometheus-lan.template.yml'                 =>   
+  $template = Join-Path (Split-Path $PSScriptRoot -Parent) 'Lot4_LAN_Integration\monitoring\prometheus-lan.template.yml' <=   
+
+
+

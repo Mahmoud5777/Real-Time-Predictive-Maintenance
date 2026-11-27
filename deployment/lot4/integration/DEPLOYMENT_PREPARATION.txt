@@ -1,0 +1,44 @@
+LOT 4 - LAN DEPLOYMENT PREPARATION
+===================================
+Preparation date: 11/26/2026 11:17:12
+Current PC IPv4: 26.250.184.112
+
+TARGET ARCHITECTURE
+-------------------
+PC1: Central Scheduler + MQTT Broker
+PC2: Fog A
+PC3: Fog B
+PC4: Fog C
+
+LAN CONFIGURATION FILES
+----------------------
+C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\Lot4_LAN_Integration\central\.env
+C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\Lot4_LAN_Integration\central\.env.central.example
+C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\Lot4_LAN_Integration\central\docker-compose.central-local-sim.yml
+C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\Lot4_LAN_Integration\central\docker-compose.lan-central.yml
+C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\Lot4_LAN_Integration\central\docker-compose.lan-central.yml.bak-patch32
+C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\Lot4_LAN_Integration\central\docker-compose.scheduler-lan-sim.yml
+C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\Lot4_LAN_Integration\fog-node\.env.fog
+C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\Lot4_LAN_Integration\fog-node\.env.fog.example
+C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\Lot4_LAN_Integration\fog-node\docker-compose.fog-local-sim.yml
+C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\Lot4_LAN_Integration\fog-node\docker-compose.fog-local-sim.yml.bak-network
+C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\Lot4_LAN_Integration\fog-node\docker-compose.fog-remote.yml
+
+VALIDATION STATUS
+----------------
+Lot4 V3: PASS
+Fog A/B/C: PASS
+Scheduler: PASS
+HTTP connectivity: PASS
+MQTT connectivity: PASS
+
+NEXT DEPLOYMENT REQUIREMENTS
+---------------------------
+[ ] Obtain IP addresses of 4 PCs
+[ ] Configure Central PC
+[ ] Configure Fog A PC
+[ ] Configure Fog B PC
+[ ] Configure Fog C PC
+[ ] Configure Windows Firewall
+[ ] Start services
+[ ] Validate real LAN communication

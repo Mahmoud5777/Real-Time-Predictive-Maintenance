@@ -1,0 +1,432 @@
+{
+    "schemaVersion":  39,
+    "description":  "Supervision centralisee du scheduler, des Fog nodes et du broker MQTT.",
+    "version":  1,
+    "panels":  [
+                   {
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "unit":  "short"
+                                                        },
+                                           "overrides":  [
+
+                                                         ]
+                                       },
+                       "id":  1,
+                       "gridPos":  {
+                                       "y":  0,
+                                       "w":  12,
+                                       "h":  8,
+                                       "x":  0
+                                   },
+                       "datasource":  {
+                                          "type":  "prometheus",
+                                          "uid":  "prometheus"
+                                      },
+                       "title":  "Disponibilite des services",
+                       "targets":  [
+                                       {
+                                           "legendFormat":  "{{job}} / {{instance}}",
+                                           "expr":  "up{job=~\"lot4-scheduler|lot4-fog-nodes|mp2-scheduler|mp2-fog-nodes\"}",
+                                           "refId":  "A"
+                                       }
+                                   ],
+                       "type":  "timeseries",
+                       "options":  {
+                                       "legend":  {
+                                                      "placement":  "bottom",
+                                                      "displayMode":  "list"
+                                                  },
+                                       "tooltip":  {
+                                                       "sort":  "desc",
+                                                       "mode":  "multi"
+                                                   }
+                                   },
+                       "description":  "1 = cible de metriques joignable; 0 = cible indisponible."
+                   },
+                   {
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "unit":  "short"
+                                                        },
+                                           "overrides":  [
+
+                                                         ]
+                                       },
+                       "id":  2,
+                       "gridPos":  {
+                                       "y":  0,
+                                       "w":  12,
+                                       "h":  8,
+                                       "x":  12
+                                   },
+                       "datasource":  {
+                                          "type":  "prometheus",
+                                          "uid":  "prometheus"
+                                      },
+                       "title":  "Health checks HTTP",
+                       "targets":  [
+                                       {
+                                           "legendFormat":  "{{deployment}} / {{service}} / {{fog_id}}",
+                                           "expr":  "probe_success{job=~\"lot4-health|mp2-health\"}",
+                                           "refId":  "A"
+                                       }
+                                   ],
+                       "type":  "timeseries",
+                       "options":  {
+                                       "legend":  {
+                                                      "placement":  "bottom",
+                                                      "displayMode":  "list"
+                                                  },
+                                       "tooltip":  {
+                                                       "sort":  "desc",
+                                                       "mode":  "multi"
+                                                   }
+                                   },
+                       "description":  "Sonde Blackbox GET /health. 1 = HTTP 200; 0 = echec."
+                   },
+                   {
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "unit":  "short"
+                                                        },
+                                           "overrides":  [
+
+                                                         ]
+                                       },
+                       "id":  3,
+                       "gridPos":  {
+                                       "y":  8,
+                                       "w":  12,
+                                       "h":  8,
+                                       "x":  0
+                                   },
+                       "datasource":  {
+                                          "type":  "prometheus",
+                                          "uid":  "prometheus"
+                                      },
+                       "title":  "Disponibilite MQTT (TCP)",
+                       "targets":  [
+                                       {
+                                           "legendFormat":  "{{deployment}} / {{instance}}",
+                                           "expr":  "probe_success{job=~\"lot4-mqtt|mp2-mqtt\"}",
+                                           "refId":  "A"
+                                       }
+                                   ],
+                       "type":  "timeseries",
+                       "options":  {
+                                       "legend":  {
+                                                      "placement":  "bottom",
+                                                      "displayMode":  "list"
+                                                  },
+                                       "tooltip":  {
+                                                       "sort":  "desc",
+                                                       "mode":  "multi"
+                                                   }
+                                   },
+                       "description":  "Sonde TCP sur le port MQTT; verifie accessibilite reseau, pas la publication metier."
+                   },
+                   {
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "unit":  "percent"
+                                                        },
+                                           "overrides":  [
+
+                                                         ]
+                                       },
+                       "id":  4,
+                       "gridPos":  {
+                                       "y":  8,
+                                       "w":  12,
+                                       "h":  8,
+                                       "x":  12
+                                   },
+                       "datasource":  {
+                                          "type":  "prometheus",
+                                          "uid":  "prometheus"
+                                      },
+                       "title":  "Utilisation CPU des Fog nodes",
+                       "targets":  [
+                                       {
+                                           "legendFormat":  "{{fog_id}} ({{job}})",
+                                           "expr":  "fog_cpu_usage_percent{job=~\"lot4-fog-nodes|mp2-fog-nodes\"}",
+                                           "refId":  "A"
+                                       }
+                                   ],
+                       "type":  "timeseries",
+                       "options":  {
+                                       "legend":  {
+                                                      "placement":  "bottom",
+                                                      "displayMode":  "list"
+                                                  },
+                                       "tooltip":  {
+                                                       "sort":  "desc",
+                                                       "mode":  "multi"
+                                                   }
+                                   },
+                       "description":  "Dernier snapshot du service. Absence de serie signifie qu aucun snapshot n est disponible."
+                   },
+                   {
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "unit":  "percent"
+                                                        },
+                                           "overrides":  [
+
+                                                         ]
+                                       },
+                       "id":  5,
+                       "gridPos":  {
+                                       "y":  16,
+                                       "w":  12,
+                                       "h":  8,
+                                       "x":  0
+                                   },
+                       "datasource":  {
+                                          "type":  "prometheus",
+                                          "uid":  "prometheus"
+                                      },
+                       "title":  "Utilisation RAM des Fog nodes",
+                       "targets":  [
+                                       {
+                                           "legendFormat":  "{{fog_id}} ({{job}})",
+                                           "expr":  "fog_ram_usage_percent{job=~\"lot4-fog-nodes|mp2-fog-nodes\"}",
+                                           "refId":  "A"
+                                       }
+                                   ],
+                       "type":  "timeseries",
+                       "options":  {
+                                       "legend":  {
+                                                      "placement":  "bottom",
+                                                      "displayMode":  "list"
+                                                  },
+                                       "tooltip":  {
+                                                       "sort":  "desc",
+                                                       "mode":  "multi"
+                                                   }
+                                   },
+                       "description":  "Dernier snapshot du service. Absence de serie signifie qu aucun snapshot n est disponible."
+                   },
+                   {
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "unit":  "short"
+                                                        },
+                                           "overrides":  [
+
+                                                         ]
+                                       },
+                       "id":  6,
+                       "gridPos":  {
+                                       "y":  16,
+                                       "w":  12,
+                                       "h":  8,
+                                       "x":  12
+                                   },
+                       "datasource":  {
+                                          "type":  "prometheus",
+                                          "uid":  "prometheus"
+                                      },
+                       "title":  "Taille des files d attente",
+                       "targets":  [
+                                       {
+                                           "legendFormat":  "{{fog_id}} ({{job}})",
+                                           "expr":  "fog_queue_size{job=~\"lot4-fog-nodes|mp2-fog-nodes\"}",
+                                           "refId":  "A"
+                                       }
+                                   ],
+                       "type":  "timeseries",
+                       "options":  {
+                                       "legend":  {
+                                                      "placement":  "bottom",
+                                                      "displayMode":  "list"
+                                                  },
+                                       "tooltip":  {
+                                                       "sort":  "desc",
+                                                       "mode":  "multi"
+                                                   }
+                                   },
+                       "description":  "Nombre de taches en attente au dernier snapshot. 0 est une file vide; aucune donnee signifie aucun snapshot."
+                   },
+                   {
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "unit":  "ops"
+                                                        },
+                                           "overrides":  [
+
+                                                         ]
+                                       },
+                       "id":  7,
+                       "gridPos":  {
+                                       "y":  24,
+                                       "w":  12,
+                                       "h":  8,
+                                       "x":  0
+                                   },
+                       "datasource":  {
+                                          "type":  "prometheus",
+                                          "uid":  "prometheus"
+                                      },
+                       "title":  "Taches terminees (debit)",
+                       "targets":  [
+                                       {
+                                           "legendFormat":  "{{job}} / {{fog_id}}",
+                                           "expr":  "sum by (job, fog_id) (rate(fog_tasks_completed_total{job=~\"lot4-scheduler|mp2-scheduler\"}[5m]))",
+                                           "refId":  "A"
+                                       }
+                                   ],
+                       "type":  "timeseries",
+                       "options":  {
+                                       "legend":  {
+                                                      "placement":  "bottom",
+                                                      "displayMode":  "list"
+                                                  },
+                                       "tooltip":  {
+                                                       "sort":  "desc",
+                                                       "mode":  "multi"
+                                                   }
+                                   },
+                       "description":  "Taux de completions par seconde sur 5 minutes. Aucune serie signifie aucun evenement recent."
+                   },
+                   {
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "unit":  "s"
+                                                        },
+                                           "overrides":  [
+
+                                                         ]
+                                       },
+                       "id":  8,
+                       "gridPos":  {
+                                       "y":  24,
+                                       "w":  12,
+                                       "h":  8,
+                                       "x":  12
+                                   },
+                       "datasource":  {
+                                          "type":  "prometheus",
+                                          "uid":  "prometheus"
+                                      },
+                       "title":  "Latence moyenne de dispatch",
+                       "targets":  [
+                                       {
+                                           "legendFormat":  "{{job}}",
+                                           "expr":  "sum by (job) (rate(scheduler_dispatch_latency_seconds_sum{job=~\"lot4-scheduler|mp2-scheduler\"}[5m])) / (sum by (job) (rate(scheduler_dispatch_latency_seconds_count{job=~\"lot4-scheduler|mp2-scheduler\"}[5m])) \u003e 0)",
+                                           "refId":  "A"
+                                       }
+                                   ],
+                       "type":  "timeseries",
+                       "options":  {
+                                       "legend":  {
+                                                      "placement":  "bottom",
+                                                      "displayMode":  "list"
+                                                  },
+                                       "tooltip":  {
+                                                       "sort":  "desc",
+                                                       "mode":  "multi"
+                                                   }
+                                   },
+                       "description":  "Moyenne sur 5 minutes avec _sum/_count. Vide si aucun dispatch n a ete observe."
+                   },
+                   {
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "unit":  "s"
+                                                        },
+                                           "overrides":  [
+
+                                                         ]
+                                       },
+                       "id":  9,
+                       "gridPos":  {
+                                       "y":  32,
+                                       "w":  12,
+                                       "h":  8,
+                                       "x":  0
+                                   },
+                       "datasource":  {
+                                          "type":  "prometheus",
+                                          "uid":  "prometheus"
+                                      },
+                       "title":  "RTO moyen de recuperation",
+                       "targets":  [
+                                       {
+                                           "legendFormat":  "{{job}} / {{failed_fog}}",
+                                           "expr":  "sum by (job, failed_fog) (rate(fog_recovery_rto_seconds_sum{job=~\"lot4-scheduler|mp2-scheduler\"}[5m])) / (sum by (job, failed_fog) (rate(fog_recovery_rto_seconds_count{job=~\"lot4-scheduler|mp2-scheduler\"}[5m])) \u003e 0)",
+                                           "refId":  "A"
+                                       }
+                                   ],
+                       "type":  "timeseries",
+                       "options":  {
+                                       "legend":  {
+                                                      "placement":  "bottom",
+                                                      "displayMode":  "list"
+                                                  },
+                                       "tooltip":  {
+                                                       "sort":  "desc",
+                                                       "mode":  "multi"
+                                                   }
+                                   },
+                       "description":  "Moyenne histogramme sur 5 minutes. Vide si aucune recuperation n a eu lieu."
+                   },
+                   {
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "unit":  "short"
+                                                        },
+                                           "overrides":  [
+
+                                                         ]
+                                       },
+                       "id":  10,
+                       "gridPos":  {
+                                       "y":  32,
+                                       "w":  12,
+                                       "h":  8,
+                                       "x":  12
+                                   },
+                       "datasource":  {
+                                          "type":  "prometheus",
+                                          "uid":  "prometheus"
+                                      },
+                       "title":  "Migrations observees (derniere heure)",
+                       "targets":  [
+                                       {
+                                           "legendFormat":  "{{job}} / {{source}} -\u003e {{destination}}",
+                                           "expr":  "sum by (job, source, destination, kind) (increase(fog_migrations_total{job=~\"lot4-scheduler|mp2-scheduler\"}[1h]))",
+                                           "refId":  "A"
+                                       }
+                                   ],
+                       "type":  "timeseries",
+                       "options":  {
+                                       "legend":  {
+                                                      "placement":  "bottom",
+                                                      "displayMode":  "list"
+                                                  },
+                                       "tooltip":  {
+                                                       "sort":  "desc",
+                                                       "mode":  "multi"
+                                                   }
+                                   },
+                       "description":  "Augmentation du compteur sur une heure. Vide si aucune migration n a ete enregistree."
+                   }
+               ],
+    "tags":  [
+                 "Lot4",
+                 "Fog",
+                 "MQTT",
+                 "Prometheus"
+             ],
+    "time":  {
+                 "to":  "now",
+                 "from":  "now-1h"
+             },
+    "timezone":  "browser",
+    "refresh":  "15s",
+    "title":  "Lot4 - Collaborative Fog Computing",
+    "uid":  "lot4-overview",
+    "editable":  true
+}

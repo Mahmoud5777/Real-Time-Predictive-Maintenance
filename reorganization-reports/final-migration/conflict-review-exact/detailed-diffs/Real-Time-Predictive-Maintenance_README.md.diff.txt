@@ -1,0 +1,57 @@
+﻿FILE: README.md
+SOURCE: Real-Time-Predictive-Maintenance
+
+=== SOURCE ORIGINAL ===
+Lines: 38
+
+=== MIGRATED VERSION ===
+Lines: 11
+
+=== DIFFERENCES ===
+
+InputObject                                                                                                                   
+-----------                                                                                                                   
+# MP2 - Collaborative Fog Computing                                                                                           
+MP2 contains the scheduler, Fog A/B/C workers, MQTT adapters, shared models, and unit/integration tests.                      
+See `docker-compose.yml` for the local service topology and `docker-compose.integrated.yml` for the MP1 integration variant...
+Run tests from this directory after installing the module dependencies:                                                       
+```powershell                                                                                                                 
+python -m pytest                                                                                                              
+```                                                                                                                           
+# Collaborative Fog Computing                                                                                                 
+## Project Description                                                                                                        
+A distributed Fog Computing architecture for                                                                                  
+industrial IoT monitoring and fault-tolerant                                                                                  
+dynamic task scheduling.                                                                                                      
+## Main Components                                                                                                            
+                                                                                                                              
+- Fog A: Production Zone A                                                                                                    
+- Fog B: Production Zone B                                                                                                    
+- Fog C: Production Zone C                                                                                                    
+- Dynamic Scheduler                                                                                                           
+- MQTT Communication                                                                                                          
+- Resource Monitoring                                                                                                         
+- Fault Tolerance and Recovery                                                                                                
+                                                                                                                              
+## Technologies                                                                                                               
+                                                                                                                              
+- Python 3.12                                                                                                                 
+- FastAPI                                                                                                                     
+- MQTT / Mosquitto                                                                                                            
+- Docker                                                                                                                      
+- Docker Compose                                                                                                              
+- Prometheus                                                                                                                  
+- pytest                                                                                                                      
+                                                                                                                              
+## Project Structure                                                                                                          
+                                                                                                                              
+- fog_nodes/: Independent Fog services                                                                                        
+- scheduler/: Dynamic task scheduling                                                                                         
+- shared/: Common data models                                                                                                 
+- mqtt/: MQTT communication                                                                                                   
+- tests/: Automated tests                                                                                                     
+- monitoring/: Monitoring configuration                                                                                       
+- docs/: Technical documentation                                                                                              
+
+
+

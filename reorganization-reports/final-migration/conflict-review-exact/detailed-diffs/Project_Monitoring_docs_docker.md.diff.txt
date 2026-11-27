@@ -1,0 +1,18 @@
+﻿FILE: docs\docker.md
+SOURCE: Project_Monitoring
+
+=== SOURCE ORIGINAL ===
+Lines: 69
+
+=== MIGRATED VERSION ===
+Lines: 69
+
+=== DIFFERENCES ===
+
+InputObject                   SideIndicator
+-----------                   -------------
+Depuis `projects/mp4` :       =>           
+Depuis `Project_Monitoring` : <=           
+
+
+
