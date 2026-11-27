@@ -1,9 +1,24 @@
-﻿import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../services/api";
 
-const DEFAULT_FROM = "2026-11-01T01:00";
-const DEFAULT_TO = "2026-11-01T02:00";
 const MAX_TRUSTED_LATENCY_SECONDS = 86400;
+
+function toDateTimeLocal(value) {
+  const pad = (number) => String(number).padStart(2, "0");
+  return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}T${pad(value.getHours())}:${pad(value.getMinutes())}`;
+}
+
+function getLatestCompletedUtcHourRange(now = new Date()) {
+  const endUtc = new Date(now);
+  endUtc.setUTCMinutes(0, 0, 0);
+
+  const startUtc = new Date(endUtc.getTime() - 60 * 60 * 1000);
+
+  return {
+    from: toDateTimeLocal(startUtc),
+    to: toDateTimeLocal(endUtc),
+  };
+}
 
 const METRIC_LABELS = {
   measurement_count: "Mesures enregistrées",
@@ -67,8 +82,9 @@ function DataState({ children, type = "info" }) {
 }
 
 function AnalyticsPanel() {
-  const [from, setFrom] = useState(DEFAULT_FROM);
-  const [to, setTo] = useState(DEFAULT_TO);
+  const [initialPeriod] = useState(() => getLatestCompletedUtcHourRange());
+  const [from, setFrom] = useState(initialPeriod.from);
+  const [to, setTo] = useState(initialPeriod.to);
   const [data, setData] = useState(null);
   const [risk, setRisk] = useState(null);
   const [comparison, setComparison] = useState(null);
@@ -96,18 +112,53 @@ function AnalyticsPanel() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { loadAnalytics(DEFAULT_FROM, DEFAULT_TO); }, [loadAnalytics]);
+  useEffect(() => {
+    loadAnalytics(initialPeriod.from, initialPeriod.to);
+  }, [loadAnalytics, initialPeriod]);
 
   const applyPeriod = (event) => {
     event.preventDefault();
-    if (!from || !to || new Date(from) >= new Date(to)) {
-      setError("La date de début doit précéder la date de fin.");
+
+    if (!from || !to) {
+      setError("Veuillez renseigner les deux dates.");
       return;
     }
-    if (new Date(to) - new Date(from) !== 3600000) {
+
+    const startDate = new Date(from);
+    const endDate = new Date(to);
+
+    if (
+      !Number.isFinite(startDate.getTime()) ||
+      !Number.isFinite(endDate.getTime()) ||
+      startDate >= endDate
+    ) {
+      setError("La date de d?but doit pr?c?der la date de fin.");
+      return;
+    }
+
+    if (endDate.getTime() - startDate.getTime() !== 3600000) {
       setError("Les KPI MP3 sont horaires : choisissez exactement une heure.");
       return;
     }
+
+    const isUtcHourBoundary = (date) =>
+      date.getUTCMinutes() === 0 &&
+      date.getUTCSeconds() === 0 &&
+      date.getUTCMilliseconds() === 0;
+
+    if (!isUtcHourBoundary(startDate) || !isUtcHourBoundary(endDate)) {
+      setError("Les dates doivent ?tre align?es sur les limites d'une heure UTC.");
+      return;
+    }
+
+    const latestCompletedUtc = new Date();
+    latestCompletedUtc.setUTCMinutes(0, 0, 0);
+
+    if (endDate > latestCompletedUtc) {
+      setError("La p?riode doit se terminer sur une heure UTC d?j? termin?e.");
+      return;
+    }
+
     loadAnalytics(from, to);
   };
 
@@ -143,6 +194,7 @@ function AnalyticsPanel() {
         <label>Fin<input type="datetime-local" value={to} onChange={(event) => setTo(event.target.value)} /></label>
         <button type="submit" disabled={loading}>{loading ? "Chargement…" : "Actualiser les Analytics"}</button>
       </form>
+      <p className="analytics-footnote">{"\u00c0 l\u2019ouverture, la derni\u00e8re heure UTC compl\u00e8te est s\u00e9lectionn\u00e9e automatiquement. Vous pouvez toujours consulter une heure historique."}</p>
       {error && <DataState type="error">{error}</DataState>}
       {loading && <DataState>Chargement des indicateurs Cloud…</DataState>}
       {!loading && orderedMetrics.length > 0 && (

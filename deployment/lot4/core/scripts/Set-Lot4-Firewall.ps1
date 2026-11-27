@@ -9,7 +9,7 @@ if ($TrustedRemote -ne 'LocalSubnet' -and $TrustedRemote -notmatch '^(\d{1,3}\.)
   throw 'TrustedRemote doit etre LocalSubnet ou une liste IPv4/CIDR separee par des virgules.'
 }
 $rules = switch ($Role) {
-  'Central' { @(@{Name='Lot4 MQTT LAN';Port=1883},@{Name='Lot4 Scheduler API';Port=8100}) }
+  'Central' { @(@{Name='Lot4 MQTT LAN';Port=1883},@{Name='Lot4 Scheduler API';Port=8100},@{Name='Lot4 MP4 Dashboard';Port=3001}) }
   'FogA' { @(@{Name='Lot4 Fog A API';Port=8101}) }
   'FogB' { @(@{Name='Lot4 Fog B API';Port=8102}) }
   'FogC' { @(@{Name='Lot4 Fog C API';Port=8103}) }

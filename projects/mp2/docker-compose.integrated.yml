@@ -5,8 +5,9 @@
 #   docker compose -f docker-compose.yml -f docker-compose.integrated.yml up -d
 services:
   mosquitto:
-    profiles:
-      - integrated-disabled
+    networks:
+      - mp2-network
+      - mp3-cloud_default
 
   fog-a:
     environment:

@@ -3,7 +3,7 @@
 services:
   ingest:
     environment:
-      MQTT_HOST: mp2-mosquitto
+      MQTT_HOST: mosquitto
       MQTT_PORT: "1883"
     networks:
       - default

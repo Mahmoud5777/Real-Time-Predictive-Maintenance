@@ -4,10 +4,10 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-fog}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fog}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set_POSTGRES_PASSWORD_in_.env}
       POSTGRES_DB: ${POSTGRES_DB:-fog_cloud}
     ports:
-      - "${PGPORT:-5432}:5432"
+      - "127.0.0.1:${PGPORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -21,6 +21,7 @@ services:
   mosquitto:
     image: eclipse-mosquitto:2
     restart: unless-stopped
+    profiles: ["standalone"]
     ports:
       - "1883:1883"
     volumes:
@@ -32,19 +33,19 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-fog}:${POSTGRES_PASSWORD:-fog}@db:5432/${POSTGRES_DB:-fog_cloud}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-fog}:${POSTGRES_PASSWORD:?Set_POSTGRES_PASSWORD_in_.env}@db:5432/${POSTGRES_DB:-fog_cloud}
     depends_on:
       db:
         condition: service_healthy
     ports:
-      - "${API_PORT:-8000}:8000"
+      - "127.0.0.1:${API_PORT:-8000}:8000"
     command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
   ingest:
     build: .
     env_file: .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-fog}:${POSTGRES_PASSWORD:-fog}@db:5432/${POSTGRES_DB:-fog_cloud}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-fog}:${POSTGRES_PASSWORD:?Set_POSTGRES_PASSWORD_in_.env}@db:5432/${POSTGRES_DB:-fog_cloud}
       MQTT_HOST: mosquitto
       MQTT_PORT: 1883
       MQTT_METRICS_HOST: 0.0.0.0
@@ -68,7 +69,7 @@ services:
     build: .
     env_file: .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-fog}:${POSTGRES_PASSWORD:-fog}@db:5432/${POSTGRES_DB:-fog_cloud}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-fog}:${POSTGRES_PASSWORD:?Set_POSTGRES_PASSWORD_in_.env}@db:5432/${POSTGRES_DB:-fog_cloud}
       KPI_METRICS_HOST: 0.0.0.0
       KPI_METRICS_PORT: 8002
     ports:
@@ -92,7 +93,7 @@ services:
     build: .
     env_file: .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-fog}:${POSTGRES_PASSWORD:-fog}@db:5432/${POSTGRES_DB:-fog_cloud}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-fog}:${POSTGRES_PASSWORD:?Set_POSTGRES_PASSWORD_in_.env}@db:5432/${POSTGRES_DB:-fog_cloud}
       SUPERVISION_METRICS_HOST: 0.0.0.0
       SUPERVISION_METRICS_PORT: 8003
     ports:
@@ -116,7 +117,7 @@ services:
     build: .
     env_file: .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-fog}:${POSTGRES_PASSWORD:-fog}@db:5432/${POSTGRES_DB:-fog_cloud}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-fog}:${POSTGRES_PASSWORD:?Set_POSTGRES_PASSWORD_in_.env}@db:5432/${POSTGRES_DB:-fog_cloud}
       RETENTION_METRICS_HOST: 0.0.0.0
       RETENTION_METRICS_PORT: 8004
     ports:

@@ -1,4 +1,4 @@
-﻿[CmdletBinding()]
+[CmdletBinding()]
 param(
   [Parameter(Mandatory=$true)][ValidateSet('fog-a','fog-b','fog-c')][string]$Node,
   [string]$CentralIP,
@@ -10,8 +10,8 @@ $envPath = Join-Path $RepositoryRoot 'deployment\lot4\core\fog-node\.env.fog'
 $envExample = Join-Path $RepositoryRoot 'deployment\lot4\core\fog-node\.env.fog.example'
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) { throw 'Docker CLI est introuvable.' }
 if (-not (Test-Path -LiteralPath $compose)) { throw "Compose introuvable: $compose" }
-if (-not (Test-Path -LiteralPath $envExample)) { throw "Exemple d'environnement introuvable: $envExample" }
-if (-not (Test-Path -LiteralPath $envPath)) { $envPath = $envExample }
+if (-not (Test-Path -LiteralPath $envPath)) { throw "Fichier .env.fog absent: $envPath. Copier .env.fog.example vers .env.fog et renseigner CENTRAL_LAN_IP." }
+# Le fichier .env.fog est obligatoire; aucun fallback vers le fichier exemple.
 if ($CentralIP) {
   $parsed = $null
   if (-not [System.Net.IPAddress]::TryParse($CentralIP,[ref]$parsed) -or $parsed.AddressFamily -ne [System.Net.Sockets.AddressFamily]::InterNetwork) { throw 'CentralIP doit etre une adresse IPv4 valide.' }

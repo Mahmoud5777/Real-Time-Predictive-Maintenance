@@ -1,4 +1,4 @@
-﻿[CmdletBinding()]
+[CmdletBinding()]
 param(
   [string]$CentralIP,
   [string]$FogAIP,
@@ -14,7 +14,7 @@ if (-not (Test-Path -LiteralPath $template)) { throw "Template Prometheus introu
 if (-not $ConfigPath) {
   $localConfig = Join-Path $RepositoryRoot 'deployment\lot4\core\central\.env'
   if (Test-Path -LiteralPath $localConfig) { $ConfigPath = $localConfig }
-  else { $ConfigPath = Join-Path $RepositoryRoot 'deployment\lot4\core\central\.env.central.example' }
+  else { throw "Configuration centrale absente: $localConfig. Creer central\.env a partir de .env.central.example puis renseigner les IPv4." }
 }
 $settings = @{}
 foreach ($line in Get-Content -LiteralPath $ConfigPath) {
