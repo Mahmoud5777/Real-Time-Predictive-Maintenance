@@ -1,6 +1,0 @@
-﻿Phase 2 legacy-path audit
-Repository: C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing
-Files scanned: 367
-Legacy token findings: 197
-CSV: C:\Users\ayedi\Desktop\projets\Collaborative-Fog-Computing\reorganization-reports\phase2-path-audit\legacy-path-findings.csv
-Note: This is a reference-token inventory, not a claim that every match is a broken path. Documentation and archived/historical references may be intentional. No files were modified.

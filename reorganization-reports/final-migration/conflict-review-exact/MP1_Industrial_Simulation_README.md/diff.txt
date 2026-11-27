@@ -1,8 +1,0 @@
-﻿
-InputObject                                                              SideIndicator
------------                                                              -------------
-Le backend Cloud MP3 est maintenu séparément dans `projects/mp3/`.       =>           
-Le backend Cloud MP3 est maintenu séparément dans `MP3_Backend_Source/`. <=           
-
-
-

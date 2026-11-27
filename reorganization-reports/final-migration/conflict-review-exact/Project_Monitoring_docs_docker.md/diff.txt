@@ -1,8 +1,0 @@
-﻿
-InputObject                   SideIndicator
------------                   -------------
-Depuis `projects/mp4` :       =>           
-Depuis `Project_Monitoring` : <=           
-
-
-
